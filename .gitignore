@@ -18,6 +18,9 @@ coverage.xml
 # Test artifacts
 junit.xml
 
+# Docs build output
+site/
+
 # Local data files
 zha-export-*.json
 zha-migration-state.json
