@@ -36,7 +36,7 @@ jobs:
           /tmp/smoke-venv/bin/zigporter --help
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
@@ -48,29 +48,70 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.13
+      - run: uv sync --dev
+
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
 
       - name: Publish to PyPI
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-      - run: uv publish dist/*
+        run: uv publish dist/*
 
       - name: Create GitHub Release
-        uses: actions/github-script@v8
+        id: create_release
+        uses: actions/github-script@v7
         with:
           script: |
             const tag = context.ref.replace('refs/tags/', '');
-            const isPrerelease = tag.includes('-');
-            await github.rest.repos.createRelease({
+
+            const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
               name: tag,
               generate_release_notes: true,
-              prerelease: isPrerelease,
+              draft: false,
+              prerelease: tag.includes('-')
             });
+
+            return {
+              version: tag.replace('v', ''),
+              body: release.data.body
+            };
+
+      - name: Update CHANGELOG.md
+        env:
+          RELEASE_DATA: ${{ steps.create_release.outputs.result }}
+        run: |
+          VERSION=$(echo "$RELEASE_DATA" | jq -r '.version')
+          RELEASE_DATE=$(date +%Y-%m-%d)
+
+          echo "$RELEASE_DATA" | jq -r '.body' > release_notes.txt
+
+          uv run python scripts/update_changelog.py "$VERSION" release_notes.txt "$RELEASE_DATE"
+
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changes to CHANGELOG.md"
+          else
+            echo "CHANGELOG.md updated successfully"
+          fi
+
+      - name: Commit and push CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changes to commit"
+          else
+            git add CHANGELOG.md
+            git commit -m "Update CHANGELOG.md for release ${GITHUB_REF#refs/tags/}"
+            git push origin HEAD:main
+          fi
