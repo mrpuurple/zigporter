@@ -1,6 +1,6 @@
 [![CI](https://github.com/nordstad/zigporter/actions/workflows/ci.yml/badge.svg)](https://github.com/nordstad/zigporter/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/nordstad/zigporter/graph/badge.svg)](https://codecov.io/gh/nordstad/zigporter)
-[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://nordstad.github.io/zigporter)
+[![Documentation](https://img.shields.io/badge/docs-zensical-blue)](https://nordstad.github.io/zigporter)
 [![PyPI - Version](https://img.shields.io/pypi/v/zigporter)](https://pypi.org/project/zigporter/)
 [![PyPI - Downloads](https://img.shields.io/pepy/dt/zigporter)](https://pepy.tech/project/zigporter)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
