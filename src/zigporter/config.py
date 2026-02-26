@@ -2,14 +2,16 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from platformdirs import user_config_dir
 
 
 def config_dir() -> Path:
-    """Return (and create) the platform-appropriate config directory for zigporter."""
-    d = Path(user_config_dir("zigporter"))
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    """Return (and create) the config directory for zigporter (~/.config/zigporter)."""
+    new = Path.home() / ".config" / "zigporter"
+    old = Path(os.path.expanduser("~/Library/Application Support/zigporter"))
+    if old.exists() and not new.exists():
+        old.rename(new)
+    new.mkdir(parents=True, exist_ok=True)
+    return new
 
 
 def default_export_path() -> Path:
