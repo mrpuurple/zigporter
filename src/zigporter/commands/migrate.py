@@ -326,10 +326,15 @@ async def step_rename(
     if device.area_id:
         z2m_device_id = await _wait_for_z2m_device_in_ha(device, ha_client, timeout=30)
         if z2m_device_id:
-            try:
-                await ha_client.update_device_area(z2m_device_id, device.area_id)
-                console.print(f"[green]✓ Area set to {device.area_name}[/green]")
-            except Exception:
+            for attempt in range(4):  # up to 4 attempts: 0, 3, 6, 9 s after rename
+                try:
+                    await ha_client.update_device_area(z2m_device_id, device.area_id)
+                    console.print(f"[green]✓ Area set to {device.area_name}[/green]")
+                    break
+                except Exception:
+                    if attempt < 3:
+                        await asyncio.sleep(3)
+            else:
                 console.print(
                     f"[yellow]Note:[/yellow] Could not set area automatically. "
                     f"Set [bold]{device.area_name}[/bold] manually in HA."
