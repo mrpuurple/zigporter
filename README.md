@@ -1,3 +1,5 @@
+# zigporter
+
 [![CI](https://github.com/nordstad/zigporter/actions/workflows/ci.yml/badge.svg)](https://github.com/nordstad/zigporter/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/nordstad/zigporter/branch/main/graph/badge.svg)](https://codecov.io/gh/nordstad/zigporter)
 [![Documentation](https://img.shields.io/badge/docs-zensical-blue)](https://nordstad.github.io/zigporter)
@@ -5,30 +7,15 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# zigporter
-
 *Because migrating 30 Zigbee devices in Home Assistant by hand is a special kind of misery.*
 
 CLI tool that automates the ZHA → Zigbee2MQTT migration in Home Assistant — one device at a
 time, with checkpoints so you can stop and pick up where you left off.
 
-> **Early Development Notice**
-> This tool is in early development and has only been tested with one specific setup:
-> - Home Assistant OS 2026.2.3
-> - Supervisor 2026.02.2
-> - Zigbee2MQTT 2.8.0-1
->
-> I have not had the possibility to test with different HA or Z2M versions and setups.
-> Feedback is very welcome — please open an [issue](https://github.com/nordstad/zigporter/issues) or submit a [PR](https://github.com/nordstad/zigporter/pulls) if you test with a different configuration.
-
-> **Early Development Notice**
-> This tool is in early development and has only been tested with one specific setup:
-> - Home Assistant OS 2026.2.3
-> - Supervisor 2026.02.2
-> - Zigbee2MQTT 2.8.0-1
->
-> I have not had the possibility to test with different HA or Z2M versions and setups.
-> Feedback is very welcome — please open an [issue](https://github.com/nordstad/zigporter/issues) or submit a [PR](https://github.com/nordstad/zigporter/pulls) if you test with a different configuration.
+> **Early Development Notice** — This tool has only been tested with HA OS 2026.2.3,
+> Supervisor 2026.02.2, and Zigbee2MQTT 2.8.0-1. Feedback very welcome — please open an
+> [issue](https://github.com/nordstad/zigporter/issues) or submit a
+> [PR](https://github.com/nordstad/zigporter/pulls) if you test with a different configuration.
 
 ## Requirements
 
@@ -44,7 +31,7 @@ uv tool install zigporter
 
 ## Configuration
 
-**Option 1 — Setup wizard (recommended)**
+### Option 1 — Setup wizard (recommended)
 
 ```bash
 zigporter setup
@@ -52,7 +39,7 @@ zigporter setup
 
 Prompts for all values and saves to `~/.config/zigporter/.env`.
 
-**Option 2 — Manual config file**
+### Option 2 — Manual config file
 
 Create `~/.config/zigporter/.env` (see `.env.example` for the template):
 
@@ -62,7 +49,7 @@ cp .env.example ~/.config/zigporter/.env
 # edit the file with your values
 ```
 
-**Option 3 — Environment variables**
+### Option 3 — Environment variables
 
 Export directly in your shell or add to `~/.zshenv` / `~/.bashrc`:
 
@@ -73,7 +60,7 @@ export Z2M_URL=https://your-ha-instance.local/abc123_zigbee2mqtt
 ```
 
 | Variable | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `HA_URL` | Yes | Home Assistant URL |
 | `HA_TOKEN` | Yes | [Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile) |
 | `HA_VERIFY_SSL` | No | `true` / `false` (default: `true`; use `false` for self-signed certs) |
@@ -100,6 +87,7 @@ zigporter list-z2m
 ```
 
 `zigporter migrate` handles everything automatically on first run:
+
 1. Runs pre-flight checks (HA reachable, ZHA active, Z2M running)
 2. Prompts you to back up Home Assistant and your ZHA network
 3. Fetches a ZHA export if one is not found, or offers to refresh an existing one
