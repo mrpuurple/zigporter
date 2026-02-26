@@ -2,10 +2,35 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from platformdirs import user_config_path
+
+
+def config_dir() -> Path:
+    """Return (and create) the platform-appropriate config directory for zigporter.
+
+    - Linux:   ~/.config/zigporter
+    - macOS:   ~/Library/Application Support/zigporter
+    - Windows: C:\\Users\\<user>\\AppData\\Local\\zigporter
+    """
+    return user_config_path("zigporter", ensure_exists=True)
+
+
+def default_export_path() -> Path:
+    return config_dir() / "zha-export.json"
+
+
+def default_state_path() -> Path:
+    return config_dir() / "migration-state.json"
+
+
+def backup_confirmed_path() -> Path:
+    return config_dir() / ".backup-confirmed"
 
 
 def _load_env() -> None:
-    load_dotenv(Path.cwd() / ".env")
+    # CWD .env takes highest precedence; fall back to ~/.config/zigporter/.env
+    if not load_dotenv(Path.cwd() / ".env"):
+        load_dotenv(config_dir() / ".env")
 
 
 def load_config() -> tuple[str, str, bool]:

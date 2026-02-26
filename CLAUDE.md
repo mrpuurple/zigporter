@@ -52,19 +52,12 @@ Data Layer      models.py (Pydantic), migration_state.py (persistent JSON)
 
 **State persistence:** `MigrationState` serializes to JSON on disk, keyed by IEEE address. Device progress is tracked as `PENDING → IN_PROGRESS → MIGRATED / FAILED`.
 
-**`compare` and `rename` commands are stubs** — the module files exist but the logic is not yet implemented.
+**`compare` and `rename` commands have been removed** — they were unimplemented stubs. Use `migrate --status` and `list-z2m` instead.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in:
-
-```
-HA_URL=https://your-ha-instance.local
-HA_TOKEN=your_long_lived_access_token_here
-HA_VERIFY_SSL=true        # set false for self-signed certs
-Z2M_URL=https://your-ha-instance.local/<ingress-slug>
-Z2M_MQTT_TOPIC=zigbee2mqtt   # only needed if using a non-default Z2M base topic
-```
+Run `zigporter setup` or create `~/.config/zigporter/.env`. CWD `.env` still works as
+a project-level override (useful for `uv run` development).
 
 `config.py` loads these via `python-dotenv` and exposes a `Config` dataclass. SSL context is built from `HA_VERIFY_SSL` and passed through all HTTP/WebSocket calls.
 

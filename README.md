@@ -11,6 +11,15 @@
 CLI tool to migrate Zigbee devices from ZHA to Zigbee2MQTT in Home Assistant.
 Runs an interactive per-device wizard with persistent state so migrations can be paused and resumed across sessions.
 
+> **Early Development Notice**
+> This tool is in early development and has only been tested with one specific setup:
+> - Home Assistant OS 2026.2.3
+> - Supervisor 2026.02.2
+> - Zigbee2MQTT 2.8.0-1
+>
+> I have not had the possibility to test with different HA or Z2M versions and setups.
+> Feedback is very welcome — please open an [issue](https://github.com/nordstad/zigporter/issues) or submit a [PR](https://github.com/nordstad/zigporter/pulls) if you test with a different configuration.
+
 ## Requirements
 
 - Python 3.12+
@@ -25,33 +34,69 @@ uv tool install zigporter
 
 ## Configuration
 
+**Option 1 — Setup wizard (recommended)**
+
 ```bash
-cp .env.example .env   # fill in your values
+zigporter setup
 ```
 
-| Variable | Description |
-|---|---|
-| `HA_URL` | Home Assistant URL |
-| `HA_TOKEN` | [Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile) |
-| `HA_VERIFY_SSL` | `true` / `false` (false for self-signed certs) |
-| `Z2M_URL` | Zigbee2MQTT ingress URL |
-| `Z2M_MQTT_TOPIC` | Z2M base topic (default: `zigbee2mqtt`) |
+Prompts for all values and saves to `~/.config/zigporter/.env`.
+
+**Option 2 — Manual config file**
+
+Create `~/.config/zigporter/.env` (see `.env.example` for the template):
+
+```bash
+mkdir -p ~/.config/zigporter
+cp .env.example ~/.config/zigporter/.env
+# edit the file with your values
+```
+
+**Option 3 — Environment variables**
+
+Export directly in your shell or add to `~/.zshenv` / `~/.bashrc`:
+
+```bash
+export HA_URL=https://your-ha-instance.local
+export HA_TOKEN=your_token
+export Z2M_URL=https://your-ha-instance.local/abc123_zigbee2mqtt
+```
+
+| Variable | Required | Description |
+|---|---|---|
+| `HA_URL` | Yes | Home Assistant URL |
+| `HA_TOKEN` | Yes | [Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile) |
+| `HA_VERIFY_SSL` | No | `true` / `false` (default: `true`; use `false` for self-signed certs) |
+| `Z2M_URL` | Yes | Zigbee2MQTT ingress URL |
+| `Z2M_MQTT_TOPIC` | No | Z2M base topic (default: `zigbee2mqtt`) |
 
 ## Usage
 
 ```bash
-# Export your ZHA device inventory
+# Verify your setup before migrating (recommended first step)
+zigporter check
+
+# Run the migration wizard (runs checks automatically on first run)
+zigporter migrate
+
+# Check migration progress without entering the wizard
+zigporter migrate --status
+
+# (Optional) manually export your ZHA device inventory
 zigporter export
 
 # (Optional) inspect what's already in Z2M
 zigporter list-z2m
-
-# Run the migration wizard
-zigporter migrate [ZHA_EXPORT]
-
-# Check progress without entering the wizard
-zigporter migrate --status
 ```
+
+`zigporter migrate` handles everything automatically on first run:
+1. Runs pre-flight checks (HA reachable, ZHA active, Z2M running)
+2. Prompts you to back up Home Assistant and your ZHA network
+3. Fetches a ZHA export if one is not found, or offers to refresh an existing one
+4. Opens the interactive migration wizard
+
+All files are stored in `~/.config/zigporter/` so the tool works from any directory.
+Use `--skip-checks` on subsequent runs to skip the pre-flight checks.
 
 ## How it works
 
