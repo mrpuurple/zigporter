@@ -41,6 +41,7 @@ def test_load_config_missing_url_raises(monkeypatch, tmp_path):
     monkeypatch.delenv("HA_URL", raising=False)
     monkeypatch.setenv("HA_TOKEN", "mytoken")
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("zigporter.config.config_dir", lambda: tmp_path)
 
     with pytest.raises(ValueError, match="HA_URL"):
         load_config()
@@ -50,6 +51,7 @@ def test_load_config_missing_token_raises(monkeypatch, tmp_path):
     monkeypatch.setenv("HA_URL", "https://ha.test")
     monkeypatch.delenv("HA_TOKEN", raising=False)
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("zigporter.config.config_dir", lambda: tmp_path)
 
     with pytest.raises(ValueError, match="HA_TOKEN"):
         load_config()
@@ -106,6 +108,7 @@ def test_load_z2m_config_strips_trailing_slash(monkeypatch, tmp_path):
 def test_load_z2m_config_missing_raises(monkeypatch, tmp_path):
     monkeypatch.delenv("Z2M_URL", raising=False)
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("zigporter.config.config_dir", lambda: tmp_path)
 
     with pytest.raises(ValueError, match="Z2M_URL"):
         load_z2m_config()

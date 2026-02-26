@@ -13,7 +13,6 @@ from zigporter.commands.list_z2m import list_z2m_command
 from zigporter.commands.migrate import migrate_command
 from zigporter.commands.setup import setup_command
 from zigporter.config import (
-    backup_confirmed_path,
     default_export_path,
     default_state_path,
     load_config,
@@ -135,7 +134,6 @@ def check() -> None:
         token=token,
         verify_ssl=verify_ssl,
         z2m_url=z2m_url,
-        skip_backup=True,
     )
     if not ok:
         raise typer.Exit(code=1)
@@ -266,18 +264,14 @@ def migrate(
     z2m_url, mqtt_topic = _get_z2m_config()
 
     if not skip_checks and not status:
-        already_confirmed = backup_confirmed_path().exists()
         ok = check_command(
             ha_url=ha_url,
             token=token,
             verify_ssl=verify_ssl,
             z2m_url=z2m_url,
-            skip_backup=already_confirmed,
         )
         if not ok:
             raise typer.Exit(code=1)
-        if not already_confirmed:
-            backup_confirmed_path().touch()
 
     export_path = _resolve_or_fetch_export(zha_export, ha_url, token, verify_ssl)
     state_path = state if state is not None else default_state_path()

@@ -212,7 +212,6 @@ def check_command(
     token: str,
     verify_ssl: bool,
     z2m_url: str,
-    skip_backup: bool = False,
 ) -> bool:
     """Run all preflight checks. Returns True if the user should proceed, False to abort."""
     console.rule("[bold cyan]Pre-flight checks[/bold cyan]")
@@ -225,36 +224,6 @@ def check_command(
         console.print("[yellow]One or more checks failed.[/yellow]")
         proceed = questionary.confirm("Proceed anyway?", default=False, style=_STYLE).ask()
         if not proceed:
-            return False
-
-    if skip_backup:
-        console.rule()
-        return True
-
-    # Backup reminder — always shown unless --skip-backup
-    console.rule("[bold yellow]Before you continue[/bold yellow]")
-    console.print(
-        "\n  [bold]Please back up before migrating:[/bold]\n"
-        "\n"
-        "  [cyan]1.[/cyan]  Home Assistant backup\n"
-        "       Settings → System → Backups → Create backup\n"
-        "\n"
-        "  [cyan]2.[/cyan]  ZHA device snapshot\n"
-        "       Run [bold]zigporter export[/bold] to save your current ZHA device list\n"
-        "       (this also serves as the source file for the migration wizard)\n"
-    )
-
-    confirmed = questionary.confirm(
-        "I have backed up Home Assistant and noted my ZHA devices — proceed?",
-        default=False,
-        style=_STYLE,
-    ).ask()
-    if not confirmed:
-        skip = questionary.confirm(
-            "Skip backup and proceed anyway?", default=False, style=_STYLE
-        ).ask()
-        if not skip:
-            console.print("[yellow]Migration cancelled. Please back up before continuing.[/yellow]")
             return False
 
     console.rule()

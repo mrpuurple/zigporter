@@ -158,28 +158,14 @@ def _all_ok_results():
     ]
 
 
-def test_check_command_all_pass_with_backup_confirmed(mocker):
-    mocker.patch(
-        "zigporter.commands.check._run_checks",
-        new=AsyncMock(return_value=_all_ok_results()),
-    )
-    mocker.patch(
-        "zigporter.commands.check.questionary.confirm",
-        return_value=MagicMock(ask=MagicMock(return_value=True)),
-    )
-
-    result = check_command("https://ha.test", "token", True, "https://z2m.test")
-    assert result is True
-
-
-def test_check_command_skip_backup(mocker):
+def test_check_command_all_pass(mocker):
     mocker.patch(
         "zigporter.commands.check._run_checks",
         new=AsyncMock(return_value=_all_ok_results()),
     )
     confirm_mock = mocker.patch("zigporter.commands.check.questionary.confirm")
 
-    result = check_command("https://ha.test", "token", True, "https://z2m.test", skip_backup=True)
+    result = check_command("https://ha.test", "token", True, "https://z2m.test")
 
     assert result is True
     confirm_mock.assert_not_called()
@@ -218,48 +204,10 @@ def test_check_command_blocking_failure_user_proceeds(mocker):
         CheckResult(name="Z2M running", status=CheckStatus.SKIPPED, message="skipped"),
     ]
     mocker.patch("zigporter.commands.check._run_checks", new=AsyncMock(return_value=results))
-    # First confirm = "proceed anyway" (True), second = backup confirmed (True)
     mocker.patch(
         "zigporter.commands.check.questionary.confirm",
-        side_effect=[
-            MagicMock(ask=MagicMock(return_value=True)),
-            MagicMock(ask=MagicMock(return_value=True)),
-        ],
+        return_value=MagicMock(ask=MagicMock(return_value=True)),
     )
 
     result = check_command("https://ha.test", "token", True, "https://z2m.test")
     assert result is True
-
-
-def test_check_command_backup_declined_then_skip(mocker):
-    mocker.patch(
-        "zigporter.commands.check._run_checks", new=AsyncMock(return_value=_all_ok_results())
-    )
-    # First confirm = backup "no", second = "skip anyway" yes
-    mocker.patch(
-        "zigporter.commands.check.questionary.confirm",
-        side_effect=[
-            MagicMock(ask=MagicMock(return_value=False)),
-            MagicMock(ask=MagicMock(return_value=True)),
-        ],
-    )
-
-    result = check_command("https://ha.test", "token", True, "https://z2m.test")
-    assert result is True
-
-
-def test_check_command_backup_declined_and_cancelled(mocker):
-    mocker.patch(
-        "zigporter.commands.check._run_checks", new=AsyncMock(return_value=_all_ok_results())
-    )
-    # Both confirms = "no"
-    mocker.patch(
-        "zigporter.commands.check.questionary.confirm",
-        side_effect=[
-            MagicMock(ask=MagicMock(return_value=False)),
-            MagicMock(ask=MagicMock(return_value=False)),
-        ],
-    )
-
-    result = check_command("https://ha.test", "token", True, "https://z2m.test")
-    assert result is False
