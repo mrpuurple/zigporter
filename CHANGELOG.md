@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.3] - 2026-02-27
+
+### Fixed
+
+- Skip entity ID rename when the target is already occupied by a stale entity (e.g. an old ZHA leftover), preventing broken dashboards after migration (#12)
+
+### Thanks
+
+- [@mrpuurple](https://github.com/mrpuurple) for reporting stale entities breaking dashboards after migration
 
 ## [0.1.2] - 2026-02-27
 
@@ -51,8 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump codecov/codecov-action from 4 to 5 (#3)
 - Bump actions/github-script from 7 to 8 (#2)
 
-[Unreleased]: https://github.com/nordstad/zigporter/compare/v0.1.2...HEAD
-[0.1.2]: https://github.com/nordstad/zigporter/compare/v0.1.2...v0.1.2
+[Unreleased]: https://github.com/nordstad/zigporter/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/nordstad/zigporter/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nordstad/zigporter/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nordstad/zigporter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nordstad/zigporter/releases/tag/v0.1.0
