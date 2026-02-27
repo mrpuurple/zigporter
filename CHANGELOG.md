@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.5] - 2026-02-27
+
+### Fixed
+
+- Detect when the wrong device joins Z2M during pairing and warn immediately with the interloper's IEEE address (#14)
+- Replace binary "Retry pairing?" timeout prompt with a 3-choice menu: Retry, Force continue (when device is visibly in Z2M but auto-detection failed), and Mark as failed (#14)
+- Broaden `get_devices()` fallback to catch `httpx.HTTPStatusError` and `httpx.RequestError` in addition to `RuntimeError`, preventing transient HTTP errors from silently aborting the polling loop (#14)
+- Fix wizard step count: `WIZARD_STEPS` updated to 7, "Review entities & dashboards" registered as step 6, Validate renumbered to step 7 — closing the gap left by PR #13 (#14)
+
+
 ## [0.1.4] - 2026-02-27
 
 ### Changed
@@ -78,7 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump codecov/codecov-action from 4 to 5 (#3)
 - Bump actions/github-script from 7 to 8 (#2)
 
-[Unreleased]: https://github.com/nordstad/zigporter/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/nordstad/zigporter/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/nordstad/zigporter/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/nordstad/zigporter/compare/v0.1.4...v0.1.4
 [0.1.3]: https://github.com/nordstad/zigporter/compare/v0.1.3...v0.1.3
 [0.1.3]: https://github.com/nordstad/zigporter/compare/v0.1.2...v0.1.3
