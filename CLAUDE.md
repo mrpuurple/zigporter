@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`zigporter` is a CLI tool for migrating Zigbee devices from ZHA (Zigbee Home Automation) to Zigbee2MQTT in Home Assistant. It uses an interactive wizard workflow with persistent state tracking so migrations can be paused and resumed.
+`zigporter` is a CLI toolkit for Zigbee device management in Home Assistant: migrate devices from ZHA to Zigbee2MQTT, rename entities/devices with cascading HA config updates, and fix stale ZHA registry entries post-migration. Uses an interactive wizard workflow with persistent state tracking so migrations can be paused and resumed.
 
 ## Commands
 
@@ -88,6 +88,8 @@ Z2M_MQTT_TOPIC=zigbee2mqtt  # Default; change if customised
 
 ## Z2M Migration Gotchas
 
+- After renaming a device in Z2M (via `rename-device`), HA entities go Unknown because the MQTT topic changes. Fix: reload the Z2M config entry (`HAClient.reload_config_entry`). The Z2M config entry is identified by `domain=mqtt` + title containing `"zigbee2mqtt"` — see `HAClient.get_z2m_config_entry_id()`.
+- When adding async methods to `HAClient` called from `execute_device_rename`, also add them as `AsyncMock` to the `mock_device_exec_client` fixture in `tests/commands/test_rename.py` (in addition to the existing note about `mock_ha_client` in `test_migrate.py`).
 - After renaming a device in Z2M, HA entity IDs update async (IEEE-hex names → friendly-name-based). Re-fetch entity IDs from the registry on each polling attempt, not just once before the loop.
 - After pairing with Z2M, the device has a **new** HA `device_id` (MQTT-based). Never reuse the old ZHA `device_id` for area assignment or entity lookup — use `HAClient.get_z2m_device_id(ieee)` instead.
 - When adding async methods to `HAClient`, update the `mock_ha_client` fixture in `tests/commands/test_migrate.py` with `AsyncMock` for each new method.
