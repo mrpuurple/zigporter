@@ -21,6 +21,7 @@ uv run zigporter check                       # Pre-flight connectivity check
 uv run zigporter inspect <device>            # Inspect a single device's state
 uv run zigporter rename-entity <old> <new>   # Rename a HA entity ID
 uv run zigporter rename-device <id> <name>   # Rename a Z2M device friendly name
+uv run zigporter fix-device                  # Post-migration cleanup for stale ZHA entries
 
 # Run all tests
 uv run pytest
@@ -43,7 +44,7 @@ The codebase follows a layered architecture:
 ```
 CLI Layer       main.py (Typer app, registers commands)
     ↓
-Command Layer   commands/{check,export,inspect,list_z2m,migrate,rename,setup}.py
+Command Layer   commands/{check,export,fix_device,inspect,list_z2m,migrate,rename,setup}.py
     ↓
 Client Layer    ha_client.py (HA WebSocket + REST), z2m_client.py (Z2M HTTP ingress)
     ↓
@@ -91,3 +92,4 @@ Z2M_MQTT_TOPIC=zigbee2mqtt  # Default; change if customised
 - After pairing with Z2M, the device has a **new** HA `device_id` (MQTT-based). Never reuse the old ZHA `device_id` for area assignment or entity lookup — use `HAClient.get_z2m_device_id(ieee)` instead.
 - When adding async methods to `HAClient`, update the `mock_ha_client` fixture in `tests/commands/test_migrate.py` with `AsyncMock` for each new method.
 - Scope `ruff format` to changed files only (`uv run ruff format <file>`) to avoid noisy diffs from pre-existing formatting drift in untouched files.
+- **`_2`/`_3` entity suffix conflicts:** HA appends numeric suffixes to new Z2M entity IDs when stale ZHA registry entries still occupy the original IDs. Step 5 of the migrate wizard detects and resolves this automatically. For devices that were already migrated before this fix, use `zigporter fix-device` to clean up stale entries and rename suffixed entities back to their originals.

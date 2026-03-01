@@ -1,3 +1,11 @@
+"""Zigbee2MQTT HTTP ingress client with three-tier auth fallback.
+
+The client targets the Z2M HTTP API exposed through the Home Assistant
+Supervisor ingress proxy. When direct ingress access is unavailable it
+falls back to the HA WebSocket API for device queries and the
+``mqtt.publish`` service for control commands.
+"""
+
 import json
 from typing import Any
 
@@ -49,6 +57,19 @@ class Z2MClient:
         verify_ssl: bool = True,
         mqtt_topic: str = "zigbee2mqtt",
     ) -> None:
+        """
+        Args:
+            ha_url: Base URL of the Home Assistant instance
+                (e.g. ``"http://homeassistant.local:8123"``).
+            ha_token: Long-lived HA access token. Used for ingress session
+                exchange and as the fallback HA-native client credential.
+            z2m_url: Full ingress URL for the Z2M add-on
+                (e.g. ``"http://homeassistant.local:8123/api/hassio_ingress/<slug>"``).
+            verify_ssl: Set to ``False`` to disable TLS certificate verification
+                for self-signed certificates.
+            mqtt_topic: Z2M base MQTT topic. Must match the ``base_topic``
+                setting in your Z2M configuration (default: ``"zigbee2mqtt"``).
+        """
         self._ha_url = ha_url.rstrip("/")
         self._ha_token = ha_token
         self._z2m_url = z2m_url.rstrip("/")

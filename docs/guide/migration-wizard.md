@@ -26,9 +26,9 @@ Each device passes through seven steps:
 2. **Reset device** — prompts you to factory-reset the physical device to clear the old pairing
 3. **Pair with Z2M** — opens a 300 s permit-join window and polls Z2M every 3 s by IEEE address; warns immediately if a different device joins by mistake
 4. **Rename** — applies the original ZHA friendly name and area assignment in Z2M and HA
-5. **Restore entity IDs** — renames IEEE-hex entity IDs back to friendly names
+5. **Restore entity IDs** — renames IEEE-hex entity IDs back to friendly names; runs a second pass to detect `_2`/`_3` suffix conflicts (caused by stale ZHA entries still occupying the original IDs), prompts to delete the stale entities, and renames the suffixed Z2M entities back to their original names
 6. **Review** — displays current entity IDs and all Lovelace dashboard cards that reference them
-7. **Validate** — polls HA entity states until all entities come online
+7. **Validate** — polls HA entity states until all entities come online; offers a "Reload Z2M integration in HA, then retry" option to force-refresh sensor state without leaving the CLI
 
 ### Pairing timeout options
 
@@ -60,15 +60,36 @@ flowchart TD
     K -- Force continue --> M
     K -- Mark failed --> L[Mark FAILED · Save state]
     J -- yes --> M[4 · Rename\nApply ZHA name + area in Z2M + HA]
-    M --> N[5 · Restore entity IDs\nRename IEEE-hex IDs to friendly names]
+    M --> N[5 · Restore entity IDs\nRename IEEE-hex IDs to friendly names\nDetect + resolve _2/_3 suffix conflicts]
     N --> O[6 · Review\nShow entities + dashboard cards]
-    O --> P[7 · Validate\nPoll HA entity states until online]
+    O --> P[7 · Validate\nPoll HA entity states until online\nOption to reload Z2M integration]
     P --> Q{All entities\nonline?}
     Q -- yes --> R[Mark MIGRATED · Save state]
     Q -- no --> S[Mark MIGRATED with warning\nCheck HA manually]
     R & S --> T([Done — run again for next device])
     L --> T
 ```
+
+## Post-migration cleanup with `fix-device`
+
+If a device was migrated before the suffix-conflict fix was added, or if the wizard was
+interrupted before step 5 completed, stale ZHA entries may still be present in the HA
+registry. This causes HA to append `_2`/`_3` suffixes to Z2M entity IDs, breaking
+dashboard cards that reference the original names.
+
+Run the standalone cleanup command to resolve this:
+
+```bash
+zigporter fix-device
+```
+
+The command:
+
+1. Fetches the HA device and entity registries
+2. Finds devices that have both a stale ZHA entry and an active Z2M entry
+3. Shows a plan (entities to delete, entities to rename)
+4. On confirmation: deletes the stale ZHA entities, removes the ZHA device from the
+   registry, and renames any `_N` suffixed Z2M entities back to their original IDs
 
 ## Device state machine
 

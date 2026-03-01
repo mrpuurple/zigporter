@@ -1,3 +1,11 @@
+"""Configuration loading for zigporter.
+
+Reads environment variables from the global config file
+(``~/.config/zigporter/.env``) or a project-level ``.env`` in the current
+working directory. CWD ``.env`` takes precedence, making it easy to use
+``uv run zigporter`` against a local test instance during development.
+"""
+
 import os
 from pathlib import Path
 
@@ -14,14 +22,32 @@ def config_dir() -> Path:
 
 
 def default_export_path() -> Path:
+    """Return the default path for the ZHA device export file.
+
+    Returns:
+        ``~/.config/zigporter/zha-export.json``
+    """
     return config_dir() / "zha-export.json"
 
 
 def default_state_path() -> Path:
+    """Return the default path for the migration state file.
+
+    Returns:
+        ``~/.config/zigporter/migration-state.json``
+    """
     return config_dir() / "migration-state.json"
 
 
 def backup_confirmed_path() -> Path:
+    """Return the sentinel path written when the user confirms a HA backup.
+
+    The migrate wizard writes this file the first time the user acknowledges
+    the backup prompt so they are not asked again on subsequent runs.
+
+    Returns:
+        ``~/.config/zigporter/.backup-confirmed``
+    """
     return config_dir() / ".backup-confirmed"
 
 

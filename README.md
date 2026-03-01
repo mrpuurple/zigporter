@@ -28,6 +28,7 @@ rename entities and devices with full cascade across automations, scripts, and d
     <tr><td nowrap><code>inspect</code></td><td>Show a device's current state across ZHA, Z2M, and the HA registry</td></tr>
     <tr><td nowrap><code>export</code></td><td>Snapshot your ZHA device inventory to JSON</td></tr>
     <tr><td nowrap><code>list&#x2011;z2m</code></td><td>List all devices currently paired with Zigbee2MQTT</td></tr>
+    <tr><td nowrap><code>fix&#x2011;device</code></td><td>Post-migration cleanup: remove stale ZHA device entries, delete their entities, and rename any <code>_2</code>/<code>_3</code> suffixed Z2M entities back to their original IDs</td></tr>
   </tbody>
 </table>
 
@@ -92,9 +93,9 @@ The wizard guides you through each device one at a time:
 2. Factory reset — prompts to clear the old pairing on the physical device
 3. Pair with Z2M — opens a 300 s permit-join window and polls by IEEE address
 4. Rename — restores the original ZHA name and area in Z2M and HA
-5. Restore entity IDs — renames IEEE-hex entity IDs back to friendly names
+5. Restore entity IDs — renames IEEE-hex entity IDs back to friendly names; detects `_2`/`_3` suffix conflicts caused by stale ZHA entries and offers to delete them and rename the Z2M entities back to their original IDs
 6. Review — shows all Lovelace cards referencing the device
-7. Validate — polls HA entity states until all entities come online
+7. Validate — polls HA entity states until all entities come online; offers a "Reload Z2M integration" option to force-refresh sensor state without leaving the CLI
 
 Progress is saved after every step. Press `Ctrl-C` to pause; rerun to resume.
 
@@ -102,6 +103,20 @@ Progress is saved after every step. Press `Ctrl-C` to pause; rerun to resume.
 # Check progress without entering the wizard
 zigporter migrate --status
 ```
+
+## Fix a Previously Migrated Device
+
+If you migrated a device before the suffix-conflict fix was added, or if stale ZHA entries
+were left behind, use `fix-device` to clean them up:
+
+```bash
+zigporter fix-device
+```
+
+The command scans HA for devices that have both a stale ZHA entry and an active Z2M entry,
+lets you pick one, deletes the stale ZHA entities, removes the ZHA device from the registry,
+and renames any `_2`/`_3` suffixed Z2M entities back to their original IDs so dashboard
+cards work again.
 
 ## Rename an Entity
 

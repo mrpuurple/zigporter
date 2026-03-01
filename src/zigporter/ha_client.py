@@ -1,3 +1,13 @@
+"""Home Assistant WebSocket and REST API client.
+
+All public methods are async. Registry queries use the WebSocket API (HA 2025+
+dropped the REST ZHA endpoint); entity states use the REST API.
+
+The ``YAML_MODE`` sentinel is returned by ``get_lovelace_config`` when HA
+reports that the dashboard is managed in YAML mode rather than the UI storage
+backend. Use ``is_yaml_mode()`` to distinguish it from a fetch failure (``None``).
+"""
+
 import json
 import ssl
 from typing import Any
@@ -18,7 +28,19 @@ def is_yaml_mode(v: object) -> bool:
 
 
 class HAClient:
-    """Client for Home Assistant REST and WebSocket APIs."""
+    """Client for Home Assistant REST and WebSocket APIs.
+
+    Most methods open a fresh WebSocket connection per call. Use
+    ``get_all_ws_data`` when you need several registry datasets at once — it
+    batches all commands on a single connection.
+
+    Args:
+        ha_url: Base URL of the Home Assistant instance
+            (e.g. ``"http://homeassistant.local:8123"``).
+        token: Long-lived access token created in your HA profile.
+        verify_ssl: Set to ``False`` to disable TLS certificate verification
+            for self-signed certificates.
+    """
 
     def __init__(self, ha_url: str, token: str, verify_ssl: bool = True) -> None:
         self._ha_url = ha_url.rstrip("/")
