@@ -31,6 +31,8 @@ nav = [
 [project.theme]
 name = "material"
 variant = "modern"
+logo = "assets/mesh_house_pulse_64.webp"
+favicon = "assets/mesh_house_pulse_64.webp"
 features = [
   "content.code.copy",
   "navigation.instant",

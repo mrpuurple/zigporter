@@ -1,5 +1,9 @@
 # zigporter
 
+<p align="center">
+  <img src="logos/mesh_house_pulse_256.webp" alt="zigporter" width="128">
+</p>
+
 [![CI](https://github.com/nordstad/zigporter/actions/workflows/ci.yml/badge.svg)](https://github.com/nordstad/zigporter/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/nordstad/zigporter/branch/main/graph/badge.svg)](https://codecov.io/gh/nordstad/zigporter)
 [![Documentation](https://img.shields.io/badge/docs-zensical-blue)](https://nordstad.github.io/zigporter)
