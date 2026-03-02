@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.3.0] - 2026-03-02
+
+### Added
+
+- docs: add interactive migrate wizard playground (#26)
+
+### Changed
+
+- refactor: safety, parser consistency, and code quality improvements (#25)
+- feat: cascade rename-entity into Helper / Group config entries (#27)
+
 ## [0.3.0] - 2026-03-02
 
 ### Added
@@ -127,6 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump actions/github-script from 7 to 8 (#2)
 
 [Unreleased]: https://github.com/nordstad/zigporter/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/nordstad/zigporter/compare/v0.3.0...v0.3.0
 [0.3.0]: https://github.com/nordstad/zigporter/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/nordstad/zigporter/compare/v0.2.1...v0.2.1
 [0.2.1]: https://github.com/nordstad/zigporter/compare/v0.2.0...v0.2.1
