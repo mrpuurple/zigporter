@@ -11,10 +11,9 @@
   <p>Home Assistant device management from the command line — migrate from ZHA to Zigbee2MQTT,<br>rename entities and devices with full cascade across automations, scripts, and dashboards.</p>
 </div>
 
-> [!NOTE]
-> **Early Development** — Tested with HA OS 2026.2.3 · Supervisor 2026.02.2 · Z2M 2.8.0-1. Open an [issue](https://github.com/nordstad/zigporter/issues) if you run a different configuration.
-
 ## Features
+
+**[Interactive Demo →](https://nordstad.github.io/zigporter/interactive-demo/)** — see every command in action before installing.
 
 <table>
   <thead>
@@ -31,6 +30,11 @@
     <tr><td nowrap><code>fix&#x2011;device</code></td><td>Post-migration cleanup: remove stale ZHA device entries, delete their entities, and rename any <code>_2</code>/<code>_3</code> suffixed Z2M entities back to their original IDs</td></tr>
   </tbody>
 </table>
+
+---
+> [!NOTE]
+> **Early Development** — Tested with HA OS 2026.2.3 · Supervisor 2026.02.2 · Z2M 2.8.0-1. Open an [issue](https://github.com/nordstad/zigporter/issues) if you run a different configuration.
+---
 
 ## Installation
 
@@ -68,6 +72,14 @@ See [Configuration](https://nordstad.github.io/zigporter/getting-started/configu
 
 ## Migrate ZHA → Zigbee2MQTT
 
+---
+> [!WARNING]
+> **Back up first** — The migration wizard removes devices from ZHA and makes changes to
+> entity IDs, automations, and dashboards that are difficult to reverse. Before running,
+> [back up your Home Assistant configuration](https://www.home-assistant.io/common-tasks/os/#backups).
+> This tool is provided **as-is** with no warranty. Use at your own risk.
+---
+
 ```bash
 # Verify connectivity first
 zigporter check
@@ -75,14 +87,6 @@ zigporter check
 # Run the migration wizard
 zigporter migrate
 ```
-
-> **Back up first** — The migration wizard removes devices from ZHA and makes changes to
-> entity IDs, automations, and dashboards that are difficult to reverse. Before running,
-> [back up your Home Assistant configuration](https://www.home-assistant.io/common-tasks/os/#backups).
-> This tool is provided **as-is** with no warranty. Use at your own risk.
-
-On the first non-status run, `zigporter` requires a one-time backup confirmation and stores
-that acknowledgement in `~/.config/zigporter/.backup-confirmed`.
 
 The wizard guides you through each device one at a time:
 
