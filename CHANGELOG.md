@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.6.0] - 2026-03-04
+
+### Changed
+
+- chore(deps): bump python-dotenv from 1.2.1 to 1.2.2 (#39)
+- chore(deps-dev): bump zensical from 0.0.23 to 0.0.24 (#38)
+- chore(deps-dev): bump ruff from 0.15.2 to 0.15.4 (#37)
+- chore(deps): bump actions/upload-pages-artifact from 3 to 4 (#36)
+- chore(deps): bump actions/upload-artifact from 4 to 7 (#35)
+- chore(deps): bump actions/download-artifact from 4 to 8 (#34)
+- chore(deps): bump actions/github-script from 7 to 8 (#33)
+- chore(deps): bump actions/checkout from 4 to 6 (#32)
+- feat(rename): interactive wizard mode for rename-device and rename-entity (#31)
+
 ## [0.6.0] - 2026-03-04
 
 ### Added
@@ -195,6 +210,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump actions/github-script from 7 to 8 (#2)
 
 [Unreleased]: https://github.com/nordstad/zigporter/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/nordstad/zigporter/compare/v0.6.0...v0.6.0
 [0.6.0]: https://github.com/nordstad/zigporter/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/nordstad/zigporter/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/nordstad/zigporter/compare/v0.4.0...v0.5.0
