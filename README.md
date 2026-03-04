@@ -32,11 +32,6 @@
   </tbody>
 </table>
 
----
-> [!NOTE]
-> **Early Development** — Tested with HA OS 2026.2.3 · Supervisor 2026.02.2 · Z2M 2.8.0-1. Open an [issue](https://github.com/nordstad/zigporter/issues) if you run a different configuration.
----
-
 ## Installation
 
 ```bash
@@ -191,6 +186,16 @@ zigporter rename-device "Living Room 1" "Living Room Ceiling" --apply
 If `Z2M_URL` is configured and the device is managed by Zigbee2MQTT, the command also
 offers to rename the Z2M friendly name in a separate prompt — so you stay in control of
 whether HA and Z2M names are kept in sync.
+
+## Confirmed Working
+
+| Software | Version |
+|---|---|
+| Home Assistant OS | 2026.2.3 |
+| HA Supervisor | 2026.02.2 |
+| Zigbee2MQTT | 2.8.0-1 |
+
+Running a different version? Open an [issue](https://github.com/nordstad/zigporter/issues) to let us know.
 
 ## Development
 
