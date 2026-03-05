@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-03-05
+
+### Fixed
+
+- Handle `YAML_MODE` sentinel in inspect dashboard scan — fixes `AttributeError` crash in migration step 6 and the `inspect` command when a dashboard is in YAML mode (#40)
 
 ## [0.6.0] - 2026-03-04
 
@@ -209,8 +214,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump codecov/codecov-action from 4 to 5 (#3)
 - Bump actions/github-script from 7 to 8 (#2)
 
-[Unreleased]: https://github.com/nordstad/zigporter/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/nordstad/zigporter/compare/v0.6.0...v0.6.0
+[Unreleased]: https://github.com/nordstad/zigporter/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/nordstad/zigporter/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/nordstad/zigporter/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/nordstad/zigporter/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/nordstad/zigporter/compare/v0.4.0...v0.5.0
