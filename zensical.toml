@@ -16,6 +16,8 @@ nav = [
     { "Rename commands" = "guide/rename.md" },
     { "Z2M authentication" = "guide/authentication.md" },
     { "Offline devices" = "guide/stale.md" },
+    { "Fix a device" = "guide/fix-device.md" },
+    { "Utilities" = "guide/utilities.md" },
   ] },
   { "API Reference" = [
     { "Overview" = "api/index.md" },
