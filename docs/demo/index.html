@@ -438,15 +438,85 @@ const DEMO_STALE = [
   [qline('Select a device to review:', 'Done'), 700],
 ];
 
+// ── DEMO: rename-entity ───────────────────────────────────────────────────────
+const DEMO_RENAME_ENTITY = [
+  [`<span class="ps">$</span> <span class="cmd">zigporter rename-entity</span>`, 0],
+  [null, 300],
+  // Step 1: domain picker
+  [`${c('?')} Select a domain:  ${g('light  (8 entities)')}`, 700],
+  [null, 200],
+  // Step 2: entity browser — user picks Search sentinel
+  [`${c('?')} Select a light entity:  ${g('🔍  Search...')}`, 700],
+  [null, 200],
+  // Step 2b: autocomplete search
+  [`${c('?')} Search light entities:  ${g('Morning Light  (light.morning_light)')}`, 900],
+  [null, 200],
+  // Step 3: new entity ID
+  [`${c('?')} New entity ID:  ${g('light.bedroom_ceiling')}`, 900],
+  [null, 200],
+  // Scanning
+  [`Scanning for references to ${bd('light.morning_light')}...  ${ok('✓')}`, 900],
+  [null, 100],
+  // Plan
+  [`  ${bd('light.morning_light')}  ${d('→')}  ${c('light.bedroom_ceiling')}`, 200],
+  [null, 100],
+  [d('  Type          Name                             Hits'), 100],
+  [`  ${d('registry')}      light.morning_light                  ${d('1')}`, 80],
+  [`  ${d('automation')}    Evening Scene                        ${d('2')}`, 80],
+  [`  ${d('lovelace')}      Overview                             ${d('1')}`, 80],
+  [`  ${d('–')}  ${d('dashboard')}    Mushroom  ${d('(0 references — scanned)')}`, 80],
+  [`  ${d('–')}  ${d('energy')}       ${d('(auto-updated by HA on entity rename)')}`, 80],
+  [null, 80],
+  [d('  3 location(s) · 3 reference(s) to update'), 150],
+  [null, 200],
+  // Confirm
+  [qline('Apply these changes?', 'Yes'), 800],
+  [null, 100],
+  // Apply
+  [`  Renaming entity in HA registry...  ${ok('✓')}`, 500],
+  [`  Updating automation ${d('"Evening Scene"')}...  ${ok('✓')}`, 400],
+  [`  Updating lovelace ${d('"Overview"')}...  ${ok('✓')}`, 400],
+  [null, 200],
+  [`${ok('✓')} Renamed ${bd('light.morning_light')} ${c('→')} ${c('light.bedroom_ceiling')}`, 300],
+];
+
+// ── DEMO: setup ───────────────────────────────────────────────────────────────
+const DEMO_SETUP = [
+  [`<span class="ps">$</span> <span class="cmd">zigporter setup</span>`, 0],
+  [null, 200],
+  [rule('zigporter setup', 70), 300],
+  [null, 100],
+  [`  Config will be saved to ${bd('~/.config/zigporter/.env')}`, 200],
+  [null, 100],
+  [`  Where to find values:`, 150],
+  [`  ${bd('HA token')}:   Settings → People → Long-Lived Access Tokens`, 80],
+  [`  ${bd('Z2M URL')}:    Open the Z2M add-on in HA and copy the ingress URL`, 80],
+  [null, 300],
+  [`${c('?')} Home Assistant URL  ${g('https://homeassistant.local:8123')}`, 1000],
+  [`${c('?')} HA long-lived access token  ${g('••••••••••••4f2a')}`, 1100],
+  [qline('Verify SSL certificate', 'Yes'), 700],
+  [qline('Set up Zigbee2MQTT? (required for migrate and list-z2m)', 'Yes'), 700],
+  [`${c('?')} Zigbee2MQTT ingress URL  ${g('https://ha.local:8123/api/hassio_ingress/abc')}`, 1000],
+  [qline('MQTT base topic', 'zigbee2mqtt'), 700],
+  [null, 200],
+  [`${ok('✓')} Saved to ${bd('~/.config/zigporter/.env')}`, 400],
+  [null, 200],
+  [`  ${ok('✓')}  HA reachable`, 700],
+  [`  ${ok('✓')}  Z2M reachable`, 600],
+  [null, 100],
+];
+
 // ── Demo registry ─────────────────────────────────────────────────────────────
 const DEMOS = [
-  { key:'check',     label:'check',         desc:'Verify HA + Z2M connectivity',         script:DEMO_CHECK },
-  { key:'list-z2m',  label:'list-z2m',      desc:'List all Zigbee2MQTT devices',          script:DEMO_LISTZ2M },
-  { key:'migrate',   label:'migrate',       desc:'Interactive ZHA → Z2M wizard (1 device)',script:DEMO_MIGRATE },
-  { key:'rename',    label:'rename-device', desc:'Rename device, cascade all references', script:DEMO_RENAME },
-  { key:'fix',       label:'fix-device',    desc:'Clean up stale ZHA registry entries',   script:DEMO_FIX },
-  { key:'inspect',   label:'inspect',       desc:'Show a device\'s full state',           script:DEMO_INSPECT },
-  { key:'stale',     label:'stale',         desc:'Find and manage offline devices',        script:DEMO_STALE },
+  { key:'check',         label:'check',         desc:'Verify HA + Z2M connectivity',          script:DEMO_CHECK },
+  { key:'fix',           label:'fix-device',    desc:'Clean up stale ZHA registry entries',    script:DEMO_FIX },
+  { key:'inspect',       label:'inspect',       desc:'Show a device\'s full state',            script:DEMO_INSPECT },
+  { key:'list-z2m',      label:'list-z2m',      desc:'List all Zigbee2MQTT devices',           script:DEMO_LISTZ2M },
+  { key:'migrate',       label:'migrate',       desc:'Interactive ZHA → Z2M wizard (1 device)',script:DEMO_MIGRATE },
+  { key:'rename',        label:'rename-device', desc:'Rename device, cascade all references',  script:DEMO_RENAME },
+  { key:'rename-entity', label:'rename-entity', desc:'Rename entity ID, cascade all references',script:DEMO_RENAME_ENTITY },
+  { key:'setup',         label:'setup',         desc:'Create or update zigporter config',       script:DEMO_SETUP },
+  { key:'stale',         label:'stale',         desc:'Find and manage offline devices',         script:DEMO_STALE },
 ];
 
 // ── Playback engine ───────────────────────────────────────────────────────────
