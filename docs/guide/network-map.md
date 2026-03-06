@@ -1,6 +1,6 @@
 # network-map
 
-Visualise your Zigbee mesh topology with signal-strength annotations.
+Generate a radial SVG diagram of your Zigbee mesh with LQI-coloured edges, hop rings, and per-device signal badges — or print a routing tree and signal table straight to the terminal.
 
 ```bash
 zigporter network-map
