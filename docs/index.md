@@ -5,6 +5,8 @@ rename entities and devices with full cascade across automations, scripts, and d
 
 > **Try it before you run it** — [Interactive demo →](interactive-demo.md) walks through a full ZHA → Z2M migration with simulated devices, right in your browser.
 
+**[Network map example →](guide/network-map/#svg-export-example)** — `network-map` generates a radial SVG diagram of your Zigbee mesh with LQI-coloured edges and per-device signal badges.
+
 ## Features
 
 <table>

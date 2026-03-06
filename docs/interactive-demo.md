@@ -10,3 +10,5 @@ to any real system.
 
 Ready to run the real thing? See [Installation](getting-started/installation.md) and
 [Migration wizard](guide/migration-wizard/) to get started.
+
+**Also:** `network-map` generates a radial SVG diagram of your Zigbee mesh — [see an example →](guide/network-map/#svg-export-example)

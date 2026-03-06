@@ -8,12 +8,14 @@
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://pepy.tech/projects/zigporter"><img src="https://static.pepy.tech/personalized-badge/zigporter?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" alt="PyPI Downloads"></a>
-  <p>Home Assistant device management from the command line — migrate from ZHA to Zigbee2MQTT,<br>rename entities and devices with full cascade across automations, scripts, and dashboards.</p>
+  <p>Manage your Home Assistant Zigbee network from the terminal.<br>Migrate ZHA → Z2M, cascade-rename entities and devices, and map your mesh.</p>
 </div>
 
 ## Features
 
 **[Interactive Demo →](https://nordstad.github.io/zigporter/interactive-demo/)** — see every command in action before installing.
+
+**[Network map example →](https://nordstad.github.io/zigporter/guide/network-map/#svg-export-example)** — radial SVG diagram of your Zigbee mesh with LQI-coloured edges and per-device signal badges.
 
 <table>
   <thead>
@@ -208,6 +210,8 @@ zigporter network-map --output network.svg --warn-lqi 100 --critical-lqi 50
 ```
 
 Open the `.svg` in any browser — hover over truncated device names to see the full name.
+
+[View a full SVG example →](https://nordstad.github.io/zigporter/guide/network-map/#svg-export-example)
 
 ## Confirmed Working
 
