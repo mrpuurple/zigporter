@@ -22,7 +22,7 @@ CLI toolkit for Home Assistant Zigbee — migrate ZHA → Z2M, cascade-rename en
     <tr><td style="white-space: nowrap"><a href="guide/utilities/#list-z2m"><code>list&#x2011;z2m</code></a></td><td>List all devices currently paired with Zigbee2MQTT</td></tr>
     <tr><td style="white-space: nowrap"><a href="guide/fix-device/"><code>fix&#x2011;device</code></a></td><td>Post-migration cleanup: remove stale ZHA device entries, delete their entities, and rename any <code>_2</code>/<code>_3</code> suffixed Z2M entities back to their original IDs</td></tr>
     <tr><td style="white-space: nowrap"><a href="guide/stale/"><code>stale</code></a></td><td>Scan all integrations for offline devices and interactively remove, annotate, or ignore them</td></tr>
-    <tr><td style="white-space: nowrap"><a href="guide/network-map/"><code>network&#x2011;map</code></a></td><td>Visualise the Zigbee mesh topology with per-link LQI signal strength and direct coordinator fallback quality</td></tr>
+    <tr><td style="white-space: nowrap"><a href="guide/network-map/"><code>network&#x2011;map</code></a></td><td>Generate a radial SVG diagram of your Zigbee mesh with LQI-coloured edges, hop rings, and per-device signal badges — or print a routing tree and signal table to the terminal</td></tr>
   </tbody>
 </table>
 

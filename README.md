@@ -31,7 +31,7 @@
     <tr><td nowrap><code>list&#x2011;z2m</code></td><td>List all devices currently paired with Zigbee2MQTT</td></tr>
     <tr><td nowrap><code>fix&#x2011;device</code></td><td>Post-migration cleanup: remove stale ZHA device entries, delete their entities, and rename any <code>_2</code>/<code>_3</code> suffixed Z2M entities back to their original IDs</td></tr>
     <tr><td nowrap><code>stale</code></td><td>Scan all integrations for offline devices and interactively remove, annotate, ignore, or permanently suppress them</td></tr>
-    <tr><td nowrap><code>network&#x2011;map</code></td><td>Render a radial SVG map of the Zigbee mesh with LQI-coloured edges, hop rings, and path-quality badges</td></tr>
+    <tr><td nowrap><code>network&#x2011;map</code></td><td>Generate a radial SVG diagram of your Zigbee mesh with LQI-coloured edges, hop rings, and per-device signal badges — or print a routing tree and signal table to the terminal</td></tr>
   </tbody>
 </table>
 
