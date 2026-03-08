@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.0] - 2026-03-08
+
+### Added
+
+- feat(network-map): add ZHA backend with --backend flag (#47)
+
+### Fixed
+
+- fix(rename-device): auto-accept suggested IDs for odd entities when --apply is set (#46)
+
 ## [1.0.0] - 2026-03-08
 
 ### Added
@@ -307,6 +318,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump actions/github-script from 7 to 8 (#2)
 
 [Unreleased]: https://github.com/nordstad/zigporter/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/nordstad/zigporter/compare/v1.0.0...v1.0.0
 [1.0.0]: https://github.com/nordstad/zigporter/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/nordstad/zigporter/compare/v0.9.0...v0.9.0
 [0.9.0]: https://github.com/nordstad/zigporter/compare/v0.8.0...v0.9.0
