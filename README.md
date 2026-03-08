@@ -229,9 +229,9 @@ Open the `.svg` in any browser — hover over truncated device names to see the 
 | HA Supervisor | 2026.02.2 |
 | HA install type | HA OS |
 | Zigbee2MQTT | 2.8.0-1 |
-| Python | 3.12, 3.13 |
+| Python | 3.12, 3.13, 3.14 |
 
-Running a different version? Open an [issue](https://github.com/nordstad/zigporter/issues) to let us know.
+Running a different version? [Submit a compatibility report](https://github.com/nordstad/zigporter/issues/new?template=compatibility_report.md) to let us know.
 
 ## Development
 
