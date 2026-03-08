@@ -1363,7 +1363,12 @@ async def test_run_rename_device_odd_entities_no_tty_apply(mocker):
     device = {"id": "dev1", "name": "Kitchen Plug", "name_by_user": None}
     # Entity whose suffix doesn't contain "kitchen_plug" slug → goes to odd list
     entities = [
-        {"entity_id": "switch.0xabcd1234", "name": None, "original_name": "Switch", "device_id": "dev1"}
+        {
+            "entity_id": "switch.0xabcd1234",
+            "name": None,
+            "original_name": "Switch",
+            "device_id": "dev1",
+        }
     ]
     mock_instance = MagicMock()
     mock_instance.get_entities_for_device = AsyncMock(return_value=entities)
