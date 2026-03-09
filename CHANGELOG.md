@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-03-09
 
+### Fixed
+
+- fix(network-map): prevent `RecursionError` crash in SVG export caused by cycles in `parent_map` — adds `_is_ancestor` guard in BFS re-placement loop and converts recursive `_compute_path_min_lqi` to iterative (#50)
 
 ## [1.0.1] - 2026-03-09
 
@@ -330,7 +334,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump codecov/codecov-action from 4 to 5 (#3)
 - Bump actions/github-script from 7 to 8 (#2)
 
-[Unreleased]: https://github.com/nordstad/zigporter/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/nordstad/zigporter/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/nordstad/zigporter/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/nordstad/zigporter/compare/v1.0.1...v1.0.1
 [1.0.1]: https://github.com/nordstad/zigporter/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/nordstad/zigporter/compare/v0.9.0...v1.0.0
