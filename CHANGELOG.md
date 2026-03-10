@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-11
+
+### Added
+
+- `list-devices` command: list all HA devices with optional `--integration` filter (#49)
+- `/smart-rename` skill: AI-assisted naming convention audit and bulk rename workflow (#49)
+- `naming_convention.py`: pluggable naming convention validation (#49)
+
+### Fixed
+
+- fix(network-map): show both LQI directions for asymmetric depth-1 links — tree output appends `(up: N)`, SVG edges show `↓N ↑N` for hop-1 devices (#52)
+- fix(network-map): handle cancelled backend prompt instead of silently defaulting to Z2M (#57)
+- fix(tests): isolate config tests from host `~/.config/zigporter/.env` (#57)
+- docs(network-map): update guide for PR #52 — add `(up: N)` section, document `↓N ↑N` SVG labels, fix `--svg` → `--output`, rename `(coord: N)` → `(direct coord: N)` (#57)
 
 ## [1.0.3] - 2026-03-09
 
@@ -354,7 +368,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump codecov/codecov-action from 4 to 5 (#3)
 - Bump actions/github-script from 7 to 8 (#2)
 
-[Unreleased]: https://github.com/nordstad/zigporter/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/nordstad/zigporter/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/nordstad/zigporter/compare/v1.0.3...v1.1.0
 [1.0.3]: https://github.com/nordstad/zigporter/compare/v1.0.3...v1.0.3
 [1.0.3]: https://github.com/nordstad/zigporter/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/nordstad/zigporter/compare/v1.0.2...v1.0.2
