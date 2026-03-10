@@ -16,6 +16,15 @@ from zigporter.z2m_client import Z2MClient
 
 console = Console()
 
+# Per-hop LQI penalty for tree-building scoring.  Without this, small LQI
+# fluctuations between scans cascade into wildly different tree depths because
+# a 4-hop chain where every hop is LQI 160 beats a direct link at LQI 155.
+# Subtracting HOP_LQI_PENALTY per hop from the candidate score makes the
+# algorithm prefer shorter paths unless the longer path has a substantial
+# LQI advantage.  Value of 10 means a depth-1 router must beat the direct
+# coordinator link by at least 10 LQI to be chosen.
+HOP_LQI_PENALTY = 10
+
 
 # ---------------------------------------------------------------------------
 # ZHA data normalization
@@ -224,13 +233,39 @@ def _build_routing_tree(
     nodes: dict[str, dict[str, Any]],
     links: list[dict[str, Any]],
 ) -> tuple[dict[str, str | None], dict[str, int], dict[str, int]]:
-    """Build a routing tree via iterative BFS.
+    """Build a routing tree via iterative greedy BFS.
 
     For each non-coordinator node, the parent is the already-placed tree node
     with the best *bidirectional* LQI — min(lqi_out, lqi_in).  Using only the
     device's outgoing LQI is misleading because Zigbee links are asymmetric:
     SLZB-06P7 might report LQI 115 to the coordinator while the coordinator
     only reports LQI 29 back.  The weaker direction is the real bottleneck.
+
+    Score = (is_child_rel, effective_lqi - HOP_LQI_PENALTY * candidate_depth).
+
+    The depth penalty stabilises the tree across scans: Z2M network scans
+    return different LQI values each time (RF noise, sleeping devices), and
+    without the penalty, small fluctuations cascade into wildly different tree
+    depths.  A penalty of 10 per hop means a 4-hop chain at LQI 160 scores
+    120, losing to a direct link at LQI 155 — correct because the direct path
+    is simpler and more reliable.
+
+    is_child_rel=1 when the candidate router explicitly claims this device as its
+    child via the ZHA ZDO relationship field (string "Child" or integer 1 from
+    bellows/zigpy serialisation).  Putting is_child first means a "Child" link
+    always beats a higher-LQI "Neighbor" link from the coordinator — correct
+    because the coordinator sometimes overhears end-devices that have actually
+    joined a range extender.
+
+    "Parent" relationship edges are skipped: a link whose relationship is "Parent"
+    means the *current* device is the parent of the candidate (i.e. the edge points
+    in the wrong direction for BFS parent selection) and would create routing cycles.
+
+    After the greedy loop, a depth-cascade pass ensures every device's depth_map
+    entry is exactly parent.depth + 1.  Without this pass, a device whose parent
+    was re-assigned to a deeper level mid-loop would retain its old (shallower)
+    depth while its parent_map entry pointed to a deeper node — creating the visual
+    inconsistency of an edge that appears to go from an inner ring to an outer ring.
 
     Returns:
         parent_map:  ieee → parent_ieee  (None for coordinator)
@@ -263,25 +298,6 @@ def _build_routing_tree(
     lqi_map: dict[str, int] = {}
     depth_map: dict[str, int] = {coordinator_ieee: 0}
     visited: set[str] = {coordinator_ieee}
-    # Track the best score seen for each placed node so that already-visited nodes can
-    # be re-placed when a strictly better parent is found later in the same pass or a
-    # subsequent pass.
-    #
-    # Score = (is_child_rel, effective_lqi).
-    #
-    # is_child_rel=1 when the candidate router explicitly claims this device as its
-    # child via the ZHA ZDO relationship field (string "Child" or integer 1 from
-    # bellows/zigpy serialisation).  Putting is_child first means a "Child" link
-    # always beats a higher-LQI "Neighbor" link from the coordinator — correct
-    # because the coordinator sometimes overhears end-devices that have actually
-    # joined a range extender.
-    #
-    # "Parent" relationship edges are skipped: a link whose relationship is "Parent"
-    # means the *current* device is the parent of the candidate (i.e. the edge points
-    # in the wrong direction for BFS parent selection) and would create routing cycles.
-    #
-    # Re-placement is safe because scores are strictly monotone increasing and bounded:
-    # is_child ∈ {0,1}, effective_lqi ∈ [0,255].  The while-loop always terminates.
     best_score_map: dict[str, tuple[int, int]] = {}
 
     changed = True
@@ -292,6 +308,7 @@ def _build_routing_tree(
                 continue
             best_parent: str | None = None
             best_score: tuple[int, int] = (-1, -1)
+            best_real_lqi = 0
             for tgt, lqi_out, relationship in outgoing.get(ieee, []):
                 if tgt not in visited:
                     continue
@@ -304,16 +321,20 @@ def _build_routing_tree(
                 effective_lqi = min(lqi_out, lqi_in)
                 # Accept both string ("Child") and integer (1) from ZHA/bellows.
                 is_child = 1 if relationship in ("Child", 1) else 0
-                score = (is_child, effective_lqi)
+                # Penalise deeper candidates so small LQI fluctuations between
+                # scans don't cascade into wildly different tree depths.
+                candidate_depth = depth_map[tgt]
+                score = (is_child, effective_lqi - HOP_LQI_PENALTY * candidate_depth)
                 if _is_ancestor(ieee, tgt, parent_map):
                     continue  # would create a cycle — skip
                 if score > best_score:
                     best_score = score
                     best_parent = tgt
+                    best_real_lqi = effective_lqi
             if best_parent is not None and best_score > best_score_map.get(ieee, (-1, -1)):
                 best_score_map[ieee] = best_score
                 parent_map[ieee] = best_parent
-                lqi_map[ieee] = best_score[1]
+                lqi_map[ieee] = best_real_lqi
                 depth_map[ieee] = depth_map[best_parent] + 1
                 visited.add(ieee)
                 changed = True
@@ -324,6 +345,23 @@ def _build_routing_tree(
             parent_map[ieee] = coordinator_ieee
             lqi_map[ieee] = 0
             depth_map[ieee] = 1
+
+    # Depth cascade: re-compute every device's depth as parent.depth + 1.
+    # The greedy loop above can re-assign a node's parent mid-pass without
+    # updating already-processed children, leaving depth_map inconsistent
+    # with parent_map.  Iterate until stable so cascaded re-assignments
+    # (where a parent's depth changes AFTER its children were processed) are
+    # fully propagated.
+    cascade_changed = True
+    while cascade_changed:
+        cascade_changed = False
+        for ieee in nodes:
+            p = parent_map.get(ieee)
+            if p is not None:
+                new_depth = depth_map.get(p, 0) + 1
+                if depth_map.get(ieee) != new_depth:
+                    depth_map[ieee] = new_depth
+                    cascade_changed = True
 
     return parent_map, lqi_map, depth_map
 
@@ -350,17 +388,27 @@ def _status_markup(lqi: int, warn_lqi: int, critical_lqi: int) -> str:
 
 
 def _coord_annotation(
-    ieee: str, depth: int, coord_lqi_map: dict[str, int], warn_lqi: int, critical_lqi: int
+    ieee: str,
+    depth: int,
+    coord_lqi_map: dict[str, int],
+    warn_lqi: int,
+    critical_lqi: int,
 ) -> str:
-    """Return a Rich-markup annotation when a routed device has a weak direct coordinator link.
+    """Return a Rich-markup annotation showing asymmetric or weak coordinator links.
 
-    Only emitted for depth > 1 nodes (devices not directly connected to the coordinator)
-    whose direct-coordinator LQI is below warn_lqi.  This surfaces the "fallback path"
-    quality without replacing the routing-path LQI shown on the tree edge.
+    Depth 1 (direct to coordinator): always shows the uplink LQI (device → coordinator,
+    measured by the coordinator).  The primary displayed LQI is min(up, down); showing
+    the uplink separately lets users compare against the Z2M dashboard badge which only
+    reports the uplink direction.
+
+    Depth > 1 (routed): shows the direct-coordinator LQI only when it is below warn_lqi,
+    flagging poor fallback connectivity if the routing parent fails.
     """
-    if depth <= 1 or ieee not in coord_lqi_map:
+    if ieee not in coord_lqi_map:
         return ""
     clqi = coord_lqi_map[ieee]
+    if depth == 1:
+        return f"  [dim](up: {clqi})[/dim]"
     if clqi >= warn_lqi:
         return ""
     if clqi == 0:
@@ -683,6 +731,7 @@ async def run_network_map(
                 lqi_map=lqi_map,
                 depth_map=depth_map,
                 children=children,
+                coord_lqi_map=coord_lqi_map,
                 output_path=output_svg,
                 warn_lqi=warn_lqi,
                 critical_lqi=critical_lqi,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,7 @@ COLLISION_GAP = 100  # px padding between node edges after nudge (must clear lab
 COLLISION_ITERS = 200  # max angle-nudge iterations before giving up
 
 MAX_LABEL_LEN = 22  # truncate long labels; full name available via SVG <title> tooltip
+LABEL_ARC = MAX_LABEL_LEN * 6 + 10  # px arc floor for label pill width (used in 3 layout stages)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -91,10 +93,7 @@ def _compute_ring_radii(
     prev_r = 0.0
     for h in range(1, max_hops + 1):
         n = count_at_depth.get(h, 1)
-        # Label width dominates over node diameter — use it as the arc floor.
-        # MAX_LABEL_LEN chars × ~6px/char + pill padding matches the pill_w formula below.
-        label_arc = MAX_LABEL_LEN * 6 + 10
-        arc_per_device = max(2 * NODE_R_ROUTER + COLLISION_GAP, label_arc) + ANGULAR_PADDING
+        arc_per_device = max(2 * NODE_R_ROUTER + COLLISION_GAP, LABEL_ARC) + ANGULAR_PADDING
         # Nodes are placed at the midpoint: (prev_r + ring_radii[h]) / 2.
         # Invert to find ring_radii[h] that gives the required node-placement radius.
         required_node_r = (n * arc_per_device) / (2 * math.pi)
@@ -216,9 +215,8 @@ def _assign_angles(
     prev_r = ring_radii.get(child_depth - 1, 0.0)
     curr_r = ring_radii.get(child_depth, prev_r + MIN_RING_GAP)
     r_at_depth = max((prev_r + curr_r) / 2, 1.0)
-    label_arc = MAX_LABEL_LEN * 6 + 10
     min_angles = [
-        max(2 * _node_radius(nodes.get(k, {}).get("type", "EndDevice")) + COLLISION_GAP, label_arc)
+        max(2 * _node_radius(nodes.get(k, {}).get("type", "EndDevice")) + COLLISION_GAP, LABEL_ARC)
         / r_at_depth
         for k in sorted_kids
     ]
@@ -291,8 +289,7 @@ def _resolve_collisions(
                     dist = math.hypot(ax - bx, ay - by)
                     ra = _node_radius(nodes[a].get("type", "EndDevice"))
                     rb = _node_radius(nodes[b].get("type", "EndDevice"))
-                    label_arc = MAX_LABEL_LEN * 6 + 10
-                    min_dist = max(ra + rb + COLLISION_GAP, label_arc)
+                    min_dist = max(ra + rb + COLLISION_GAP, LABEL_ARC)
                     if dist >= min_dist:
                         continue
                     moved = True
@@ -353,7 +350,7 @@ def _draw_legend(
     critical_lqi: int,
 ) -> None:
     lx, ly = 20, 20
-    lw, lh = 280, 290
+    lw, lh = 300, 316
     row = 24
 
     g = dwg.g(id="legend")
@@ -433,7 +430,7 @@ def _draw_legend(
     )
     y += row + 6
 
-    # In-circle LQI explanation: small annotated circle
+    # In-circle LQI explanation: small annotated circle with badge overlay
     ex = lx + 16
     ey = y - 3
     g.add(dwg.circle(center=(ex, ey), r=7, fill=ROUTER_FILL))
@@ -459,8 +456,28 @@ def _draw_legend(
     )
     g.add(
         dwg.text(
-            "path min LQI (worst hop)",
+            "badge: \u2191uplink LQI (hop 1)",
             insert=(lx + 30, y),
+            fill=TEXT_DIM,
+            font_size=LEGEND_FS,
+        )
+    )
+    y += row - 8
+    g.add(
+        dwg.text(
+            "or path-min LQI (hop 2+)",
+            insert=(lx + 30, y),
+            fill=TEXT_DIM,
+            font_size=LEGEND_FS,
+        )
+    )
+    y += row
+
+    # Depth-1 edge label explanation — full-width text, no icon column
+    g.add(
+        dwg.text(
+            "Hop-1 edges: \u2193 coord\u2192dev  \u2191 dev\u2192coord",
+            insert=(lx + 8, y),
             fill=TEXT_DIM,
             font_size=LEGEND_FS,
         )
@@ -480,27 +497,170 @@ def _draw_legend(
     dwg.add(g)
 
 
-# ── Public entry point ────────────────────────────────────────────────────────
+def _draw_node(
+    dwg: svgwrite.Drawing,
+    node_group: svgwrite.container.Group,
+    label_group: svgwrite.container.Group,
+    ieee: str,
+    x: float,
+    y: float,
+    angle: float,
+    node: dict[str, Any],
+    depth: int,
+    path_lqi: int,
+    coord_lqi: int | None,
+    lqi: int,
+    warn_lqi: int,
+    critical_lqi: int,
+) -> None:
+    """Draw a single node: circle + glow + LQI badge + label pill + label text."""
+    node_type = node.get("type", "EndDevice")
+    name = node.get("friendlyName", ieee)
+    fill = _node_fill(node_type)
+    nr = _node_radius(node_type)
+    is_coord = node_type == "Coordinator"
+
+    # Status ring + glow filter on problem nodes
+    stroke_color = fill
+    stroke_w = 0
+    glow_filter: str | None = None
+    if not is_coord:
+        if lqi < critical_lqi:
+            stroke_color = EDGE_CRIT
+            stroke_w = 3
+            glow_filter = "url(#glow-crit)"
+        elif lqi < warn_lqi:
+            stroke_color = EDGE_WARN
+            stroke_w = 2
+            glow_filter = "url(#glow-warn)"
+
+    circle_attrs: dict[str, Any] = dict(
+        center=(round(x, 1), round(y, 1)),
+        r=nr,
+        fill=fill,
+        stroke=stroke_color,
+        stroke_width=stroke_w,
+    )
+    if glow_filter:
+        circle_attrs["filter"] = glow_filter
+    node_group.add(dwg.circle(**circle_attrs))
+
+    # LQI badge — shown inside every non-coordinator device node.
+    # Depth 1: shows uplink LQI (device → coordinator, same value as the Z2M
+    #   dashboard badge) so the diagram is directly comparable to Z2M.
+    # Depth 2+: shows the worst-hop (path-min) LQI on the full path from
+    #   coordinator to this device.
+    if not is_coord:
+        badge_lqi = coord_lqi if (depth == 1 and coord_lqi is not None) else path_lqi
+        lqi_color = _edge_color(badge_lqi, warn_lqi, critical_lqi)
+        is_router = node_type == "Router"
+        badge_fs = "9px" if is_router else "8px"
+        char_w = 6 if is_router else 5
+        badge_h = 11 if is_router else 10
+        badge_w = len(str(badge_lqi)) * char_w + 8
+        node_group.add(
+            dwg.rect(
+                insert=(round(x - badge_w / 2, 1), round(y - badge_h / 2, 1)),
+                size=(badge_w, badge_h),
+                rx=3,
+                fill="#0f172a",
+                opacity="0.82",
+            )
+        )
+        node_group.add(
+            dwg.text(
+                str(badge_lqi),
+                insert=(round(x, 1), round(y + badge_h * 0.3, 1)),
+                fill=lqi_color,
+                font_size=badge_fs,
+                font_weight="bold",
+                text_anchor="middle",
+            )
+        )
+
+    # Label: radially offset outward from center
+    if is_coord:
+        lx, ly_label = x, y + nr + 16
+        anchor = "middle"
+    else:
+        offset = nr + 14
+        lx = x + math.sin(angle) * offset
+        ly_label = y - math.cos(angle) * offset
+        anchor = _label_anchor(angle)
+
+    # Pill background behind name
+    display_name = (name[: MAX_LABEL_LEN - 1] + "\u2026") if len(name) > MAX_LABEL_LEN else name
+    pill_h = 16
+    pill_w = len(display_name) * 6 + 10
+    if anchor == "start":
+        pill_x = lx - 4
+    elif anchor == "end":
+        pill_x = lx - pill_w + 4
+    else:  # middle
+        pill_x = lx - pill_w / 2
+    pill_y = ly_label - 13
+    label_group.add(
+        dwg.rect(
+            insert=(round(pill_x, 1), round(pill_y, 1)),
+            size=(pill_w, pill_h),
+            rx=5,
+            fill="#0f172a",
+            opacity="0.7",
+        )
+    )
+
+    lbl = dwg.text(
+        display_name,
+        insert=(round(lx, 1), round(ly_label, 1)),
+        fill=TEXT_PRIMARY,
+        font_size=LABEL_FS,
+        text_anchor=anchor,
+    )
+    if display_name != name:
+        lbl.set_desc(title=name)  # renders as <title> child for SVG tooltip
+    label_group.add(lbl)
 
 
-def render_svg(
+# ── Layout orchestration ─────────────────────────────────────────────────────
+
+
+@dataclass
+class LayoutResult:
+    """Computed geometry for every node in the network."""
+
+    positions: dict[str, tuple[float, float]]
+    angles: dict[str, float]
+    ring_radii: dict[int, float]
+    path_min_lqi: dict[str, int]
+    canvas: int
+    cx: float
+    cy: float
+    max_hops: int
+    coordinator_ieee: str
+
+
+def _compute_layout(
     nodes: dict[str, dict[str, Any]],
     parent_map: dict[str, str | None],
     lqi_map: dict[str, int],
     depth_map: dict[str, int],
     children: dict[str, list[str]],
-    output_path: Path,
-    warn_lqi: int = 80,
-    critical_lqi: int = 30,
-) -> None:
-    """Render a radial Zigbee network map to *output_path* as SVG."""
+) -> LayoutResult | None:
+    """Run the full radial layout pipeline and return geometry, or ``None`` if no coordinator."""
+    # Input validation — catch bad topology data early with clear messages
+    bad_keys = {k for k in parent_map if k not in nodes}
+    if bad_keys:
+        raise ValueError(f"parent_map contains IEEEs not in nodes: {bad_keys}")
+    bad_parents = {v for v in parent_map.values() if v is not None and v not in nodes}
+    if bad_parents:
+        raise ValueError(f"parent_map references parent IEEEs not in nodes: {bad_parents}")
+
     coordinator_ieee = next(
         (ieee for ieee, n in nodes.items() if n.get("type") == "Coordinator"), None
     )
     if coordinator_ieee is None:
-        return
+        return None
 
-    # ── Layout geometry ───────────────────────────────────────────────────────
     max_hops = max(depth_map.values(), default=1)
     ring_radii = _compute_ring_radii(depth_map, nodes)
     half = max(ring_radii.values()) + LABEL_MARGIN
@@ -537,6 +697,46 @@ def render_svg(
         )
 
     _resolve_collisions(positions, angles, depth_map, nodes, cx, cy, ring_radii)
+
+    return LayoutResult(
+        positions=positions,
+        angles=angles,
+        ring_radii=ring_radii,
+        path_min_lqi=path_min_lqi,
+        canvas=canvas,
+        cx=cx,
+        cy=cy,
+        max_hops=max_hops,
+        coordinator_ieee=coordinator_ieee,
+    )
+
+
+# ── Public entry point ────────────────────────────────────────────────────────
+
+
+def render_svg(
+    nodes: dict[str, dict[str, Any]],
+    parent_map: dict[str, str | None],
+    lqi_map: dict[str, int],
+    depth_map: dict[str, int],
+    children: dict[str, list[str]],
+    output_path: Path,
+    warn_lqi: int = 80,
+    critical_lqi: int = 30,
+    coord_lqi_map: dict[str, int] | None = None,
+) -> None:
+    """Render a radial Zigbee network map to *output_path* as SVG."""
+    layout = _compute_layout(nodes, parent_map, lqi_map, depth_map, children)
+    if layout is None:
+        return
+
+    positions = layout.positions
+    angles = layout.angles
+    ring_radii = layout.ring_radii
+    path_min_lqi = layout.path_min_lqi
+    canvas = layout.canvas
+    cx, cy = layout.cx, layout.cy
+    max_hops = layout.max_hops
 
     # ── Drawing ───────────────────────────────────────────────────────────────
     dwg = svgwrite.Drawing(
@@ -596,6 +796,7 @@ def render_svg(
     dwg.add(ring_group)
 
     # Edges + LQI pill badges
+    _coord_lqi = coord_lqi_map or {}
     edge_group = dwg.g(id="edges", opacity=str(EDGE_OPACITY))
     lqi_label_group = dwg.g(id="lqi-labels")
     for ieee, parent_ieee in parent_map.items():
@@ -613,8 +814,18 @@ def render_svg(
                 stroke_width=_edge_width(lqi),
             )
         )
-        mx, my = x1 * 0.3 + x2 * 0.7, y1 * 0.3 + y2 * 0.7
-        badge_w = len(str(lqi)) * 7 + 10
+        # For depth-1 devices show both directions: ↓N = downlink (coordinator → device),
+        # ↑N = uplink (device → coordinator, what the Z2M dashboard reports).
+        up_lqi = _coord_lqi.get(ieee)
+        if depth_map.get(ieee, 0) == 1 and up_lqi is not None:
+            lqi_text = f"\u2193{lqi} \u2191{up_lqi}"
+        else:
+            lqi_text = str(lqi)
+        # Place label 35% from child toward parent (avoids overlapping parent's
+        # node label — especially the coordinator label which sits just below it).
+        mx = x1 + 0.35 * (x2 - x1)
+        my = y1 + 0.35 * (y2 - y1)
+        badge_w = len(lqi_text) * 7 + 10
         lqi_label_group.add(
             dwg.rect(
                 insert=(round(mx - badge_w / 2, 1), round(my - 9, 1)),
@@ -626,7 +837,7 @@ def render_svg(
         )
         lqi_label_group.add(
             dwg.text(
-                str(lqi),
+                lqi_text,
                 insert=(round(mx, 1), round(my + 1, 1)),
                 fill=color,
                 font_size=DIM_FS,
@@ -642,110 +853,26 @@ def render_svg(
 
     for ieee, (x, y) in positions.items():
         node = nodes[ieee]
-        node_type = node.get("type", "EndDevice")
-        name = node.get("friendlyName", ieee)
-        lqi = lqi_map.get(ieee, 0)
-        fill = _node_fill(node_type)
-        nr = _node_radius(node_type)
-        is_coord = node_type == "Coordinator"
-
-        # Status ring + glow filter on problem nodes
-        stroke_color = fill
-        stroke_w = 0
-        glow_filter: str | None = None
-        if not is_coord:
-            if lqi < critical_lqi:
-                stroke_color = EDGE_CRIT
-                stroke_w = 3
-                glow_filter = "url(#glow-crit)"
-            elif lqi < warn_lqi:
-                stroke_color = EDGE_WARN
-                stroke_w = 2
-                glow_filter = "url(#glow-warn)"
-
-        circle_attrs: dict[str, Any] = dict(
-            center=(round(x, 1), round(y, 1)),
-            r=nr,
-            fill=fill,
-            stroke=stroke_color,
-            stroke_width=stroke_w,
-        )
-        if glow_filter:
-            circle_attrs["filter"] = glow_filter
-        node_group.add(dwg.circle(**circle_attrs))
-
-        # Path-min LQI badge — shown inside every non-coordinator device node.
-        # Displays the worst-hop LQI on the path from coordinator to this device.
+        depth = depth_map.get(ieee, 0)
         path_lqi = path_min_lqi.get(ieee, 0)
-        if not is_coord:
-            lqi_color = _edge_color(path_lqi, warn_lqi, critical_lqi)
-            is_router = node_type == "Router"
-            badge_fs = "9px" if is_router else "8px"
-            char_w = 6 if is_router else 5
-            badge_h = 11 if is_router else 10
-            badge_w = len(str(path_lqi)) * char_w + 8
-            node_group.add(
-                dwg.rect(
-                    insert=(round(x - badge_w / 2, 1), round(y - badge_h / 2, 1)),
-                    size=(badge_w, badge_h),
-                    rx=3,
-                    fill="#0f172a",
-                    opacity="0.82",
-                )
-            )
-            node_group.add(
-                dwg.text(
-                    str(path_lqi),
-                    insert=(round(x, 1), round(y + badge_h * 0.3, 1)),
-                    fill=lqi_color,
-                    font_size=badge_fs,
-                    font_weight="bold",
-                    text_anchor="middle",
-                )
-            )
-
-        # Label: radially offset outward from center
+        coord_lqi = _coord_lqi.get(ieee)
         angle = angles.get(ieee, 0.0)
-        if is_coord:
-            lx, ly_label = x, y + nr + 16
-            anchor = "middle"
-        else:
-            offset = nr + 14
-            lx = x + math.sin(angle) * offset
-            ly_label = y - math.cos(angle) * offset
-            anchor = _label_anchor(angle)
-
-        # Pill background behind name
-        display_name = (name[: MAX_LABEL_LEN - 1] + "…") if len(name) > MAX_LABEL_LEN else name
-        pill_h = 16
-        pill_w = len(display_name) * 6 + 10
-        if anchor == "start":
-            pill_x = lx - 4
-        elif anchor == "end":
-            pill_x = lx - pill_w + 4
-        else:  # middle
-            pill_x = lx - pill_w / 2
-        pill_y = ly_label - 13
-        label_group.add(
-            dwg.rect(
-                insert=(round(pill_x, 1), round(pill_y, 1)),
-                size=(pill_w, pill_h),
-                rx=5,
-                fill="#0f172a",
-                opacity="0.7",
-            )
+        _draw_node(
+            dwg,
+            node_group,
+            label_group,
+            ieee,
+            x,
+            y,
+            angle,
+            node,
+            depth,
+            path_lqi,
+            coord_lqi,
+            lqi_map.get(ieee, 0),
+            warn_lqi,
+            critical_lqi,
         )
-
-        lbl = dwg.text(
-            display_name,
-            insert=(round(lx, 1), round(ly_label, 1)),
-            fill=TEXT_PRIMARY,
-            font_size=LABEL_FS,
-            text_anchor=anchor,
-        )
-        if display_name != name:
-            lbl.set_desc(title=name)  # renders as <title> child for SVG tooltip
-        label_group.add(lbl)
 
     dwg.add(node_group)
     dwg.add(label_group)
