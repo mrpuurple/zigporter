@@ -874,3 +874,175 @@ def test_stale_command_suppressed_count_does_not_call_picker(mocker, tmp_path):
     stale_command("url", "tok", False, state_path=state_path)
 
     mock_select.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _match_offline
+# ---------------------------------------------------------------------------
+
+
+def test_match_offline_by_name_partial():
+    from zigporter.commands.stale import _match_offline  # noqa: PLC0415
+
+    offline = [_offline_device(), {**_offline_device(), "device_id": "dev-2", "name": "New Lamp"}]
+    assert _match_offline("Old", offline) == [offline[0]]
+
+
+def test_match_offline_by_name_case_insensitive():
+    from zigporter.commands.stale import _match_offline  # noqa: PLC0415
+
+    offline = [_offline_device()]
+    assert _match_offline("old bulb", offline) == [offline[0]]
+
+
+def test_match_offline_by_device_id_exact():
+    from zigporter.commands.stale import _match_offline  # noqa: PLC0415
+
+    offline = [_offline_device()]
+    assert _match_offline("dev-1", offline) == [offline[0]]
+
+
+def test_match_offline_no_match():
+    from zigporter.commands.stale import _match_offline  # noqa: PLC0415
+
+    offline = [_offline_device()]
+    assert _match_offline("Nonexistent", offline) == []
+
+
+# ---------------------------------------------------------------------------
+# stale_command — headless action path
+# ---------------------------------------------------------------------------
+
+
+def test_stale_command_action_without_device_prints_error(mocker, tmp_path):
+    """--action without a device argument should print an error and not fetch HA."""
+    mock_fetch = mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    stale_command("url", "tok", False, state_path=tmp_path / "s.json", action="ignore")
+    mock_fetch.assert_not_called()
+
+
+def test_stale_command_invalid_action_prints_error(mocker, tmp_path):
+    """Unknown --action value should print an error and not fetch HA."""
+    mock_fetch = mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    stale_command(
+        "url", "tok", False, state_path=tmp_path / "s.json", device="Old Bulb", action="nuke"
+    )
+    mock_fetch.assert_not_called()
+
+
+def test_stale_command_device_not_found_prints_error(mocker, tmp_path):
+    """Device arg that matches nothing should print an error without showing picker."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    mock_select = mocker.patch("questionary.select")
+
+    stale_command("url", "tok", False, state_path=tmp_path / "s.json", device="Phantom Lamp")
+
+    mock_select.assert_not_called()
+
+
+def test_stale_command_headless_action_ignore(mocker, tmp_path):
+    """device + action=ignore marks the device as ignored without picker."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    mock_select = mocker.patch("questionary.select")
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old Bulb", action="ignore")
+
+    mock_select.assert_not_called()
+    from zigporter.stale_state import load_stale_state  # noqa: PLC0415
+
+    state = load_stale_state(state_path)
+    assert state.devices["dev-1"].status == StaleDeviceStatus.IGNORED
+
+
+def test_stale_command_headless_action_suppress(mocker, tmp_path):
+    """device + action=suppress marks the device as suppressed without picker."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    mocker.patch("questionary.select")
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="dev-1", action="suppress")
+
+    from zigporter.stale_state import load_stale_state  # noqa: PLC0415
+
+    state = load_stale_state(state_path)
+    assert state.devices["dev-1"].status == StaleDeviceStatus.SUPPRESSED
+
+
+def test_stale_command_headless_action_mark_stale_with_note(mocker, tmp_path):
+    """device + action=mark-stale saves the note without prompting."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    mock_text = mocker.patch("questionary.text")
+    state_path = tmp_path / "s.json"
+
+    stale_command(
+        "url",
+        "tok",
+        False,
+        state_path=state_path,
+        device="Old Bulb",
+        action="mark-stale",
+        note="replace next week",
+    )
+
+    mock_text.assert_not_called()
+    from zigporter.stale_state import load_stale_state  # noqa: PLC0415
+
+    state = load_stale_state(state_path)
+    assert state.devices["dev-1"].status == StaleDeviceStatus.STALE
+    assert state.devices["dev-1"].note == "replace next week"
+
+
+def test_stale_command_headless_action_clear(mocker, tmp_path):
+    """device + action=clear removes the device's stale status."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    state_path = tmp_path / "s.json"
+    pre_state = StaleState()
+    mark_stale(pre_state, "dev-1", "Old Bulb", note="old note")
+    from zigporter.stale_state import save_stale_state  # noqa: PLC0415
+
+    save_stale_state(pre_state, state_path)
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old Bulb", action="clear")
+
+    from zigporter.stale_state import load_stale_state  # noqa: PLC0415
+
+    state = load_stale_state(state_path)
+    assert "dev-1" not in state.devices
+
+
+def test_stale_command_device_arg_skips_picker(mocker, tmp_path):
+    """Device arg without action calls _show_device_detail directly, skipping the outer picker."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    mock_select = mocker.patch("questionary.select")
+    mock_detail = mocker.patch("zigporter.commands.stale._show_device_detail")
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old Bulb")
+
+    mock_select.assert_not_called()
+    mock_detail.assert_called_once()

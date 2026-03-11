@@ -205,7 +205,26 @@ def _show_plan(pair: StalePair) -> None:
         )
 
 
-async def run_fix_device(ha_url: str, token: str, verify_ssl: bool) -> None:
+def _match_pairs(device_str: str, pairs: list[StalePair]) -> list[StalePair]:
+    """Return StalePairs matching device_str by IEEE address or partial name."""
+    _s = device_str.lower().replace(":", "").replace("-", "")
+    stripped = _s[2:] if _s.startswith("0x") else _s
+    if len(stripped) == 16 and all(c in "0123456789abcdef" for c in stripped):
+        norm = normalize_ieee(device_str)
+        ieee_matches = [p for p in pairs if p.ieee == norm]
+        if ieee_matches:
+            return ieee_matches
+    lower = device_str.lower()
+    return [p for p in pairs if lower in p.name.lower()]
+
+
+async def run_fix_device(
+    ha_url: str,
+    token: str,
+    verify_ssl: bool,
+    device: str | None = None,
+    apply: bool = False,
+) -> None:
     ha_client = HAClient(ha_url, token, verify_ssl)
 
     console.print("Fetching registry data from Home Assistant...", end=" ")
@@ -224,7 +243,18 @@ async def run_fix_device(ha_url: str, token: str, verify_ssl: bool) -> None:
         )
         return
 
-    if len(pairs) == 1:
+    if device is not None:
+        matches = _match_pairs(device, pairs)
+        if not matches:
+            console.print(f"[red]No stale device found matching:[/red] {device!r}")
+            return
+        if len(matches) > 1:
+            console.print(f"[red]Ambiguous — {len(matches)} devices match {device!r}:[/red]")
+            for p in matches:
+                console.print(f"  {p.name}  ({p.ieee})")
+            return
+        pair = matches[0]
+    elif len(pairs) == 1:
         pair = pairs[0]
     else:
         choices = [questionary.Choice(f"{p.name}  ({p.ieee})", value=p) for p in pairs]
@@ -239,9 +269,13 @@ async def run_fix_device(ha_url: str, token: str, verify_ssl: bool) -> None:
 
     _show_plan(pair)
 
-    confirmed = await questionary.confirm(
-        "Apply fix?", default=True, style=_STYLE
-    ).unsafe_ask_async()
+    if apply:
+        confirmed = True
+    else:
+        confirmed = await questionary.confirm(
+            "Apply fix?", default=True, style=_STYLE
+        ).unsafe_ask_async()
+
     if not confirmed:
         console.print("[yellow]Aborted.[/yellow]")
         return
@@ -251,5 +285,11 @@ async def run_fix_device(ha_url: str, token: str, verify_ssl: bool) -> None:
     console.print("\n[green]✓ Done.[/green]  Reload the HA page to confirm the device is clean.")
 
 
-def fix_device_command(ha_url: str, token: str, verify_ssl: bool) -> None:
-    asyncio.run(run_fix_device(ha_url, token, verify_ssl))
+def fix_device_command(
+    ha_url: str,
+    token: str,
+    verify_ssl: bool,
+    device: str | None = None,
+    apply: bool = False,
+) -> None:
+    asyncio.run(run_fix_device(ha_url, token, verify_ssl, device, apply))

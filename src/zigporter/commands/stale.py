@@ -392,6 +392,15 @@ def _show_device_detail(
     # "back" or None → return to picker
 
 
+_VALID_ACTIONS = frozenset({"remove", "ignore", "mark-stale", "suppress", "clear"})
+
+
+def _match_offline(device_str: str, offline: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Find offline devices matching device_str by name (substring) or exact device_id."""
+    lower = device_str.lower()
+    return [d for d in offline if lower in d["name"].lower() or device_str == d["device_id"]]
+
+
 # ---------------------------------------------------------------------------
 # Command entry point
 # ---------------------------------------------------------------------------
@@ -402,10 +411,23 @@ def stale_command(
     token: str,
     verify_ssl: bool,
     state_path: Path | None = None,
+    device: str | None = None,
+    action: str | None = None,
+    note: str | None = None,
 ) -> None:
     """Identify and interactively manage offline/stale HA devices."""
     if state_path is None:
         state_path = default_stale_path()
+
+    if action is not None and device is None:
+        console.print("[red]--action requires a device argument.[/red]")
+        return
+
+    if action is not None and action not in _VALID_ACTIONS:
+        console.print(
+            f"[red]Unknown action:[/red] {action!r}  (valid: {', '.join(sorted(_VALID_ACTIONS))})"
+        )
+        return
 
     console.print("\nFetching device data from Home Assistant...")
     try:
@@ -421,8 +443,8 @@ def stale_command(
     state = load_stale_state(state_path)
 
     # Record first-seen for all offline devices, then persist
-    for device in offline:
-        record_first_seen(state, device["device_id"], device["name"])
+    for dev in offline:
+        record_first_seen(state, dev["device_id"], dev["name"])
 
     # Prune state entries for devices that are no longer offline (resolved or removed from HA)
     current_ids = {d["device_id"] for d in offline}
@@ -437,6 +459,53 @@ def stale_command(
 
     save_stale_state(state, state_path)
 
+    # --- Headless / semi-headless path ---
+    if device is not None:
+        matches = _match_offline(device, offline)
+        if not matches:
+            console.print(f"[red]Device not found in offline list:[/red] {device!r}")
+            return
+        if len(matches) > 1:
+            console.print(f"[red]Ambiguous — {len(matches)} devices match {device!r}:[/red]")
+            for d in matches:
+                console.print(f"  {d['name']}  ({d['device_id']})")
+            return
+        matched = matches[0]
+
+        if action is None:
+            # Semi-headless: skip the picker, go straight to the action menu
+            removed_ids: set[str] = set()
+            _show_device_detail(matched, state, state_path, removed_ids, ha_url, token, verify_ssl)
+            return
+
+        # Fully headless: execute the action without prompts
+        removed_ids = set()
+        if action == "remove":
+            console.print(f"Removing [bold]{matched['name']}[/bold]...", end=" ")
+            try:
+                success = asyncio.run(_do_remove_device(ha_url, token, verify_ssl, matched))
+            except (RuntimeError, OSError) as exc:
+                console.print(f"[red]Error:[/red] {exc}")
+                return
+            if success:
+                console.print("[green]✓ Removed[/green]")
+                unmark(state, matched["device_id"])
+                save_stale_state(state, state_path)
+            else:
+                console.print("[yellow]⚠ Device still present in registry.[/yellow]")
+        elif action == "ignore":
+            _handle_ignore(matched, state, state_path)
+        elif action == "mark-stale":
+            mark_stale(state, matched["device_id"], matched["name"], note=note)
+            save_stale_state(state, state_path)
+            console.print("[green]✓ Marked as stale[/green]")
+        elif action == "suppress":
+            _handle_suppress(matched, state, state_path, removed_ids)
+        elif action == "clear":
+            _handle_clear(matched, state, state_path)
+        return
+
+    # --- Interactive path (original behaviour) ---
     n_stale = sum(
         1
         for d in offline
@@ -454,7 +523,7 @@ def stale_command(
         f"([dim]{n_stale} stale · {n_ignored} ignored[/dim])"
     )
 
-    removed_ids: set[str] = set()
+    removed_ids = set()
 
     while True:
         current_offline = [d for d in offline if d["device_id"] not in removed_ids]
