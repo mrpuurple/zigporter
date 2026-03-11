@@ -249,3 +249,24 @@ async def test_run_list_z2m_json_output_excludes_coordinator(z2m_devices, mocker
     devices = json.loads(captured.out)["devices"]
     assert not any(d["friendly_name"] == "Coordinator" for d in devices)
     assert len(devices) == 2
+
+
+async def test_run_list_z2m_json_output_uses_ieee_when_no_friendly_name(mocker, capsys):
+    """In JSON mode, devices without friendly_name fall back to ieee_address."""
+    devices = [
+        {
+            "ieee_address": "0xdeadbeefdeadbeef",
+            "type": "EndDevice",
+            "supported": True,
+            "definition": None,
+        }
+    ]
+    mock_client = mocker.MagicMock()
+    mock_client.get_devices = AsyncMock(return_value=devices)
+
+    with patch("zigporter.commands.list_z2m.Z2MClient", return_value=mock_client):
+        await run_list_z2m(HA_URL, TOKEN, Z2M_URL, verify_ssl=False, json_output=True)
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["devices"][0]["friendly_name"] == "0xdeadbeefdeadbeef"

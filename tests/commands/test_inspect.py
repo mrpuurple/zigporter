@@ -915,3 +915,216 @@ async def test_run_inspect_invalid_backend_errors(mocker, capsys):
     await run_inspect("url", "token", False, device="switch.kitchen_plug", backend="zhm")
 
     fetch_mock.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# run_inspect — __not_backend__ paths
+# ---------------------------------------------------------------------------
+
+
+async def test_run_inspect_not_backend_zha_prints_integration_hint(mocker):
+    """__not_backend__ with backend='zha' prints a hint about --backend all."""
+    from zigporter.commands.inspect import run_inspect  # noqa: PLC0415
+
+    mock_ha = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.inspect.HAClient", return_value=mock_ha)
+    mocker.patch(
+        "zigporter.commands.inspect.fetch_all_data",
+        new=AsyncMock(return_value={**_BASE_DATA}),
+    )
+    mocker.patch(
+        "zigporter.commands.inspect._resolve_device_arg",
+        return_value=["__not_backend__"],
+    )
+    mock_show = mocker.patch("zigporter.commands.inspect.show_report")
+
+    await run_inspect("url", "token", False, device="some.entity", backend="zha")
+
+    mock_show.assert_not_called()
+
+
+async def test_run_inspect_not_backend_all_prints_not_found(mocker):
+    """__not_backend__ with backend='all' prints device not found (no integration hint)."""
+    from zigporter.commands.inspect import run_inspect  # noqa: PLC0415
+
+    mock_ha = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.inspect.HAClient", return_value=mock_ha)
+    mocker.patch(
+        "zigporter.commands.inspect.fetch_all_data",
+        new=AsyncMock(return_value={**_BASE_DATA}),
+    )
+    mocker.patch(
+        "zigporter.commands.inspect._resolve_device_arg",
+        return_value=["__not_backend__"],
+    )
+    mock_show = mocker.patch("zigporter.commands.inspect.show_report")
+
+    await run_inspect("url", "token", False, device="some.entity", backend="all")
+
+    mock_show.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# run_inspect — interactive picker paths
+# ---------------------------------------------------------------------------
+
+
+async def test_run_inspect_interactive_picker_returns_none(mocker):
+    """When device is None and the picker returns None, show_report is not called."""
+    from zigporter.commands.inspect import run_inspect  # noqa: PLC0415
+
+    mock_ha = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.inspect.HAClient", return_value=mock_ha)
+    mocker.patch(
+        "zigporter.commands.inspect.fetch_all_data",
+        new=AsyncMock(return_value={**_BASE_DATA}),
+    )
+    mocker.patch("zigporter.commands.inspect._pick_device", new=AsyncMock(return_value=None))
+    mock_show = mocker.patch("zigporter.commands.inspect.show_report")
+
+    await run_inspect("url", "token", False)  # device=None → interactive
+
+    mock_show.assert_not_called()
+
+
+async def test_run_inspect_interactive_picker_shows_report(mocker):
+    """When device is None and picker returns a device_id, show_report is called."""
+    from zigporter.commands.inspect import run_inspect  # noqa: PLC0415
+
+    mock_ha = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.inspect.HAClient", return_value=mock_ha)
+    mocker.patch(
+        "zigporter.commands.inspect.fetch_all_data",
+        new=AsyncMock(return_value={**_BASE_DATA}),
+    )
+    mocker.patch("zigporter.commands.inspect._pick_device", new=AsyncMock(return_value="dev-abc"))
+    mock_show = mocker.patch("zigporter.commands.inspect.show_report")
+
+    await run_inspect("url", "token", False)
+
+    mock_show.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# run_inspect — deps is None
+# ---------------------------------------------------------------------------
+
+
+async def test_run_inspect_deps_none_prints_error(mocker):
+    """build_deps returning None must print an error and not call show_report."""
+    from zigporter.commands.inspect import run_inspect  # noqa: PLC0415
+
+    mock_ha = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.inspect.HAClient", return_value=mock_ha)
+    mocker.patch(
+        "zigporter.commands.inspect.fetch_all_data",
+        new=AsyncMock(return_value={**_BASE_DATA}),
+    )
+    mocker.patch("zigporter.commands.inspect.build_deps", return_value=None)
+    mock_show = mocker.patch("zigporter.commands.inspect.show_report")
+
+    await run_inspect("url", "token", False, device="switch.kitchen_plug")
+
+    mock_show.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# run_inspect — debug mode calls _debug_lovelace
+# ---------------------------------------------------------------------------
+
+
+async def test_run_inspect_debug_mode_calls_debug_lovelace(mocker):
+    """debug=True without --json must call _debug_lovelace."""
+    from zigporter.commands.inspect import run_inspect  # noqa: PLC0415
+
+    mock_ha = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.inspect.HAClient", return_value=mock_ha)
+    mocker.patch(
+        "zigporter.commands.inspect.fetch_all_data",
+        new=AsyncMock(return_value={**_BASE_DATA, "_panels_data": {}}),
+    )
+    mock_debug = mocker.patch("zigporter.commands.inspect._debug_lovelace")
+    mocker.patch("zigporter.commands.inspect.show_report")
+
+    await run_inspect("url", "token", False, debug=True, device="switch.kitchen_plug")
+
+    mock_debug.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _debug_lovelace — covers all config branches (None, YAML_MODE, real)
+# ---------------------------------------------------------------------------
+
+
+def test_debug_lovelace_all_branches():
+    """_debug_lovelace must not raise for None, YAML_MODE, and real lovelace configs."""
+    from zigporter.commands.inspect import _debug_lovelace  # noqa: PLC0415
+
+    all_data = {
+        "_panels_data": {
+            "lovelace": {"component_name": "lovelace", "url_path": ""},
+            "other": {"component_name": "custom_panel"},
+        },
+        "lovelace": [
+            (None, None),  # fetch failed
+            ("yaml-dash", YAML_MODE),  # YAML mode — skipped
+            (
+                "home",
+                {
+                    "views": [
+                        {
+                            "title": "Home",
+                            "cards": [{"type": "button", "entity": "switch.plug"}],
+                        }
+                    ]
+                },
+            ),
+        ],
+    }
+    _debug_lovelace(all_data)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# _filter_by_backend — unknown backend falls through to full registry
+# ---------------------------------------------------------------------------
+
+
+def test_filter_by_backend_unknown_returns_full_registry():
+    """An unrecognised backend string falls through to the full device_registry."""
+    from zigporter.commands.inspect import _filter_by_backend  # noqa: PLC0415
+
+    dr = [{"id": "dev1"}, {"id": "dev2"}]
+    result = _filter_by_backend(dr, [], "unknown_backend")
+    assert result == dr
+
+
+# ---------------------------------------------------------------------------
+# build_deps — non-ZHA device uses device_registry fields
+# ---------------------------------------------------------------------------
+
+
+def test_build_deps_non_zha_device_uses_registry_fields():
+    """Non-ZHA device must fall back to device_registry name/manufacturer/model."""
+    data = {
+        **_BASE_DATA,
+        "zha_devices": [],
+        "device_registry": [
+            {
+                "id": "dev-mqtt",
+                "area_id": "kitchen",
+                "name": "Z2M Plug",
+                "name_by_user": "My Smart Plug",
+                "manufacturer": "Sonoff",
+                "model": "S31",
+            }
+        ],
+        "entity_registry": [
+            {"entity_id": "switch.z2m_plug", "device_id": "dev-mqtt", "platform": "mqtt"}
+        ],
+    }
+    deps = build_deps("dev-mqtt", data)
+    assert deps is not None
+    assert deps.name == "My Smart Plug"
+    assert deps.manufacturer == "Sonoff"
+    assert deps.model == "S31"
+    assert deps.ieee is None

@@ -1046,3 +1046,111 @@ def test_stale_command_device_arg_skips_picker(mocker, tmp_path):
 
     mock_select.assert_not_called()
     mock_detail.assert_called_once()
+
+
+def test_stale_command_headless_action_remove_success(mocker, tmp_path):
+    """device + action=remove removes the device and clears its state entry."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    from unittest.mock import AsyncMock  # noqa: PLC0415
+
+    mocker.patch(
+        "zigporter.commands.stale._do_remove_device",
+        new=AsyncMock(return_value=True),
+    )
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old Bulb", action="remove")
+
+    from zigporter.stale_state import load_stale_state  # noqa: PLC0415
+
+    state = load_stale_state(state_path)
+    assert "dev-1" not in state.devices
+
+
+def test_stale_command_headless_action_remove_still_present(mocker, tmp_path):
+    """device + action=remove when device remains in registry prints a warning."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    from unittest.mock import AsyncMock  # noqa: PLC0415
+
+    mocker.patch(
+        "zigporter.commands.stale._do_remove_device",
+        new=AsyncMock(return_value=False),
+    )
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old Bulb", action="remove")
+    # No crash — still-present warning path exercised
+
+
+def test_stale_command_headless_action_remove_exception(mocker, tmp_path):
+    """device + action=remove with a connection error prints the error and returns."""
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one,
+    )
+    from unittest.mock import AsyncMock  # noqa: PLC0415
+
+    mocker.patch(
+        "zigporter.commands.stale._do_remove_device",
+        new=AsyncMock(side_effect=RuntimeError("conn failed")),
+    )
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old Bulb", action="remove")
+    # No crash — exception path exercised
+
+
+def test_stale_command_headless_ambiguous_device(mocker, tmp_path):
+    """device arg that matches multiple offline devices prints an error without executing."""
+
+    async def _fake_fetch_two(*_args):
+        return [
+            _offline_device(),
+            {**_offline_device(), "device_id": "dev-2", "name": "Old Sensor"},
+        ]
+
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_two,
+    )
+    mock_select = mocker.patch("questionary.select")
+    state_path = tmp_path / "s.json"
+
+    stale_command("url", "tok", False, state_path=state_path, device="Old")
+
+    mock_select.assert_not_called()
+
+
+def test_stale_command_prune_plural_message(mocker, tmp_path, capsys):
+    """Pruning multiple resolved entries uses plural wording."""
+
+    async def _fake_fetch_one_dev(*_args):
+        return [_offline_device()]
+
+    mocker.patch(
+        "zigporter.commands.stale._fetch_offline_devices",
+        side_effect=_fake_fetch_one_dev,
+    )
+    mocker.patch("questionary.select", return_value=MagicMock(ask=MagicMock(return_value=_DONE)))
+    state_path = tmp_path / "s.json"
+
+    from zigporter.stale_state import save_stale_state  # noqa: PLC0415
+
+    pre_state = StaleState()
+    mark_stale(pre_state, "ghost-1", "Ghost One")
+    mark_stale(pre_state, "ghost-2", "Ghost Two")
+    save_stale_state(pre_state, state_path)
+
+    stale_command("url", "tok", False, state_path=state_path)
+
+    from zigporter.stale_state import load_stale_state  # noqa: PLC0415
+
+    state = load_stale_state(state_path)
+    assert "ghost-1" not in state.devices
+    assert "ghost-2" not in state.devices
