@@ -34,7 +34,7 @@ class DashboardRef:
 
 @dataclass
 class DeviceDeps:
-    ieee: str
+    ieee: str | None  # ZHA or Z2M IEEE address; None for non-Zigbee devices
     name: str
     manufacturer: str | None
     model: str | None
@@ -182,24 +182,30 @@ async def show_migrate_inspect_summary(
 # ---------------------------------------------------------------------------
 
 
+def _extract_ieee(dr_entry: dict[str, Any]) -> str | None:
+    """Extract an IEEE address from a device registry entry's identifiers, if present."""
+    from zigporter.utils import parse_z2m_ieee_identifier
+
+    for platform, identifier in dr_entry.get("identifiers", []):
+        if platform == "zha":
+            return identifier
+        if platform == "mqtt":
+            ieee = parse_z2m_ieee_identifier(identifier)
+            if ieee:
+                return f"0x{ieee}"
+    return None
+
+
 def build_deps(
-    ieee: str,
+    device_id: str,
     all_data: dict[str, Any],
 ) -> DeviceDeps | None:
-    """Assemble a DeviceDeps for the given IEEE address from pre-fetched data."""
-    norm = normalize_ieee(ieee)
-
-    # Find ZHA device entry
-    zha_device = next(
-        (d for d in all_data["zha_devices"] if normalize_ieee(d.get("ieee", "")) == norm),
-        None,
-    )
-    if zha_device is None:
+    """Assemble a DeviceDeps for the given HA device ID from pre-fetched data."""
+    dr_entry = next((d for d in all_data["device_registry"] if d["id"] == device_id), None)
+    if dr_entry is None:
         return None
 
-    device_id = zha_device.get("device_reg_id", "")
     area_map = {a["area_id"]: a["name"] for a in all_data["area_registry"]}
-    dr_entry = next((d for d in all_data["device_registry"] if d["id"] == device_id), {})
     area_name = area_map.get(dr_entry.get("area_id", ""))
 
     # Entities for this device
@@ -227,13 +233,27 @@ def build_deps(
         title = all_data["dashboard_titles"].get(url_path, url_path or "Default")
         dashboard_refs.extend(_scan_dashboard(config, title, target))
 
-    name = zha_device.get("user_given_name") or zha_device.get("name", ieee)
+    # Prefer ZHA user_given_name > device registry name_by_user > device registry name
+    zha_device = next(
+        (d for d in all_data["zha_devices"] if d.get("device_reg_id") == device_id),
+        None,
+    )
+    if zha_device:
+        name = zha_device.get("user_given_name") or zha_device.get("name") or device_id
+        manufacturer = zha_device.get("manufacturer") or dr_entry.get("manufacturer")
+        model = zha_device.get("model") or dr_entry.get("model")
+    else:
+        name = dr_entry.get("name_by_user") or dr_entry.get("name") or device_id
+        manufacturer = dr_entry.get("manufacturer")
+        model = dr_entry.get("model")
+
+    ieee = _extract_ieee(dr_entry) or (zha_device.get("ieee") if zha_device else None)
 
     return DeviceDeps(
         ieee=ieee,
         name=name,
-        manufacturer=zha_device.get("manufacturer"),
-        model=zha_device.get("model"),
+        manufacturer=manufacturer,
+        model=model,
         area_name=area_name,
         entities=sorted(entity_ids),
         automations=automations,
@@ -249,7 +269,7 @@ def build_deps(
 
 
 def show_report(deps: DeviceDeps) -> None:
-    meta_parts = [f"IEEE: [dim]{deps.ieee}[/dim]"]
+    meta_parts = [f"IEEE: [dim]{deps.ieee}[/dim]"] if deps.ieee else []
     if deps.area_name:
         meta_parts.append(f"Area: [bold]{deps.area_name}[/bold]")
     if deps.model:
@@ -337,42 +357,48 @@ def show_report(deps: DeviceDeps) -> None:
 
 
 async def _pick_device(
-    zha_devices: list[dict[str, Any]],
-    device_registry: list[dict[str, Any]],
-    area_map: dict[str, str],
+    all_data: dict[str, Any],
+    backend: str,
 ) -> str | None:
-    """Interactive device picker grouped by area, matching the migrate picker style."""
-    dr_by_id = {d["id"]: d for d in device_registry}
+    """Interactive device picker grouped by area.  Returns an HA device ID."""
+    device_registry = all_data["device_registry"]
+    zha_devices = all_data["zha_devices"]
+    area_map = {a["area_id"]: a["name"] for a in all_data["area_registry"]}
 
-    # Enrich each ZHA device with its resolved area name
-    enriched: list[tuple[dict[str, Any], str]] = []
-    for dev in zha_devices:
-        dr_entry = dr_by_id.get(dev.get("device_reg_id", ""), {})
-        area_name = area_map.get(dr_entry.get("area_id", ""), "")
-        enriched.append((dev, area_name))
+    candidates = _filter_by_backend(device_registry, zha_devices, backend)
+    zha_by_reg_id = {d.get("device_reg_id"): d for d in zha_devices}
 
-    # Sort: area alphabetically (no-area → end), then device name within area
-    enriched.sort(
-        key=lambda x: (x[1] or "\xff", x[0].get("user_given_name") or x[0].get("name", ""))
-    )
-
-    if not enriched:
-        console.print("[yellow]No ZHA devices found.[/yellow]")
+    if not candidates:
+        label = {"zha": "ZHA", "z2m": "Zigbee2MQTT", "all": "HA"}.get(backend, backend)
+        console.print(f"[yellow]No {label} devices found.[/yellow]")
         return None
+
+    def _name(dr: dict[str, Any]) -> str:
+        zha = zha_by_reg_id.get(dr["id"])
+        if zha:
+            return zha.get("user_given_name") or zha.get("name") or dr.get("name") or dr["id"]
+        return dr.get("name_by_user") or dr.get("name") or dr["id"]
+
+    def _model(dr: dict[str, Any]) -> str:
+        zha = zha_by_reg_id.get(dr["id"])
+        if zha:
+            return zha.get("model") or dr.get("model") or ""
+        return dr.get("model") or ""
+
+    enriched = [(dr, area_map.get(dr.get("area_id", ""), "")) for dr in candidates]
+    enriched.sort(key=lambda x: (x[1] or "\xff", _name(x[0]).lower()))
 
     choices: list = []
     current_area: object = object()
-    for dev, area_name in enriched:
+    for dr, area_name in enriched:
         if area_name != current_area:
             current_area = area_name
             heading = f" {area_name or 'No area'} "
             choices.append(
                 questionary.Separator(f"{'─' * 4}{heading}{'─' * max(0, 48 - len(heading))}")
             )
-        name = dev.get("user_given_name") or dev.get("name", dev.get("ieee", "?"))
-        model = dev.get("model") or ""
-        label = f"  {name:<40} {model}"
-        choices.append(questionary.Choice(title=label, value=dev.get("ieee")))
+        label = f"  {_name(dr):<40} {_model(dr)}"
+        choices.append(questionary.Choice(title=label, value=dr["id"]))
 
     return await questionary.select(
         "Select a device to inspect:",
@@ -427,28 +453,206 @@ def _debug_lovelace(all_data: dict[str, Any]) -> None:
     console.print()
 
 
-async def run_inspect(ha_url: str, token: str, verify_ssl: bool, debug: bool = False) -> None:
-    ha_client = HAClient(ha_url, token, verify_ssl)
+def _filter_by_backend(
+    device_registry: list[dict[str, Any]],
+    zha_devices: list[dict[str, Any]],
+    backend: str,
+) -> list[dict[str, Any]]:
+    """Return device registry entries visible to the given backend."""
+    if backend == "all":
+        return device_registry
+    if backend == "zha":
+        zha_reg_ids = {d.get("device_reg_id") for d in zha_devices}
+        return [d for d in device_registry if d["id"] in zha_reg_ids]
+    if backend == "z2m":
+        from zigporter.utils import parse_z2m_ieee_identifier  # noqa: PLC0415
 
-    console.print("Fetching data from Home Assistant...", end=" ")
-    all_data = await fetch_all_data(ha_client)
-    console.print("[green]✓[/green]")
+        return [
+            d
+            for d in device_registry
+            if any(
+                platform == "mqtt" and parse_z2m_ieee_identifier(identifier) is not None
+                for platform, identifier in d.get("identifiers", [])
+            )
+        ]
+    return device_registry
 
-    if debug:
-        _debug_lovelace(all_data)
 
-    area_map = {a["area_id"]: a["name"] for a in all_data["area_registry"]}
-    ieee = await _pick_device(all_data["zha_devices"], all_data["device_registry"], area_map)
-    if ieee is None:
+def _resolve_device_arg(device_str: str, all_data: dict[str, Any], backend: str) -> list[str]:
+    """Resolve a CLI device arg to a list of matching HA device IDs.
+
+    Accepts an entity ID (``domain.name``), an IEEE address (hex with optional
+    ``0x`` prefix or colon separators), or a partial device name.  Returns an
+    empty list when nothing matches and multiple entries when the name is
+    ambiguous.
+
+    Returns ``["__not_backend__"]`` when the device exists but belongs to a
+    different integration than the requested backend.
+    """
+    entity_registry = all_data["entity_registry"]
+    device_registry = all_data["device_registry"]
+    zha_devices = all_data["zha_devices"]
+    backend_devices = _filter_by_backend(device_registry, zha_devices, backend)
+    backend_ids = {d["id"] for d in backend_devices}
+    all_ids = {d["id"] for d in device_registry}
+
+    # 0. Direct HA device ID — 32 lowercase hex chars (no separators)
+    _s_raw = device_str.lower().replace("-", "")
+    if len(_s_raw) == 32 and all(c in "0123456789abcdef" for c in _s_raw):
+        if _s_raw in backend_ids:
+            return [_s_raw]
+        if _s_raw in all_ids:
+            return ["__not_backend__"]
+        return []
+
+    # 1. Entity ID — identified by a domain separator not starting with 0x
+    if "." in device_str and not device_str.startswith("0x"):
+        entity = next((e for e in entity_registry if e["entity_id"] == device_str), None)
+        if entity:
+            device_id = entity.get("device_id")
+            if device_id in backend_ids:
+                return [device_id]
+            if any(d["id"] == device_id for d in device_registry):
+                return ["__not_backend__"]
+        return []
+
+    # 2. IEEE address — strip 0x prefix / colons / dashes, check for 16 hex chars
+    _s = device_str.lower().replace(":", "").replace("-", "")
+    stripped = _s[2:] if _s.startswith("0x") else _s
+    if len(stripped) == 16 and all(c in "0123456789abcdef" for c in stripped):
+        norm = normalize_ieee(device_str)
+        # Check ZHA devices first
+        zha_dev = next((d for d in zha_devices if normalize_ieee(d.get("ieee", "")) == norm), None)
+        if zha_dev:
+            dev_id = zha_dev.get("device_reg_id")
+            return [dev_id] if dev_id in backend_ids else ["__not_backend__"]
+        # Check Z2M / other MQTT identifiers
+        for dr in device_registry:
+            ieee = _extract_ieee(dr)
+            if ieee and normalize_ieee(ieee) == norm:
+                return [dr["id"]] if dr["id"] in backend_ids else ["__not_backend__"]
+        return []
+
+    # 3. Partial name match (case-insensitive substring)
+    lower = device_str.lower()
+
+    # Build name for each device: prefer ZHA user_given_name
+    zha_by_reg_id = {d.get("device_reg_id"): d for d in zha_devices}
+
+    def _device_name(dr: dict[str, Any]) -> str:
+        zha = zha_by_reg_id.get(dr["id"])
+        if zha:
+            return zha.get("user_given_name") or zha.get("name") or dr.get("name") or ""
+        # For Z2M and other integrations: HA stores the friendly name as name_by_user
+        # (if the user renamed it in HA) or name (set by the integration on pairing).
+        # Also check the Z2M friendly_name via the entity registry as a last resort.
+        return dr.get("name_by_user") or dr.get("name") or ""
+
+    backend_matches = [d["id"] for d in backend_devices if lower in _device_name(d).lower()]
+    if backend_matches:
+        return backend_matches
+
+    # Check if the name matches a device in a different backend
+    other_match = next(
+        (
+            d
+            for d in device_registry
+            if d["id"] not in backend_ids and lower in _device_name(d).lower()
+        ),
+        None,
+    )
+    if other_match:
+        return ["__not_backend__"]
+    return []
+
+
+async def run_inspect(
+    ha_url: str,
+    token: str,
+    verify_ssl: bool,
+    debug: bool = False,
+    device: str | None = None,
+    backend: str = "zha",
+    json_output: bool = False,
+) -> None:
+    _VALID_BACKENDS = {"zha", "z2m", "all"}
+    if backend not in _VALID_BACKENDS:
+        console.print(
+            f"[red]Error:[/red] Unknown backend {backend!r}. "
+            f"Valid values: {', '.join(sorted(_VALID_BACKENDS))}"
+        )
         return
 
-    deps = build_deps(ieee, all_data)
+    ha_client = HAClient(ha_url, token, verify_ssl)
+
+    if not json_output:
+        console.print("Fetching data from Home Assistant...", end=" ")
+    all_data = await fetch_all_data(ha_client)
+    if not json_output:
+        console.print("[green]✓[/green]")
+
+    if debug and not json_output:
+        _debug_lovelace(all_data)
+
+    backend_label = {"zha": "ZHA", "z2m": "Zigbee2MQTT", "all": "HA"}.get(backend, backend)
+
+    if device is not None:
+        matches = _resolve_device_arg(device, all_data, backend)
+        if not matches:
+            console.print(f"[red]{backend_label} device not found:[/red] {device!r}")
+            return
+        if matches == ["__not_backend__"]:
+            if backend == "all":
+                console.print(f"[red]Device not found:[/red] {device!r}")
+            else:
+                console.print(
+                    f"[red]Not a {backend_label} device:[/red] {device!r}  "
+                    f"[dim](use --backend all to search all integrations)[/dim]"
+                )
+            return
+        if len(matches) > 1:
+            console.print(
+                f"[red]Ambiguous — {len(matches)} {backend_label} devices match {device!r}:[/red]"
+            )
+            zha_by_reg_id = {d.get("device_reg_id"): d for d in all_data["zha_devices"]}
+            dr_by_id = {d["id"]: d for d in all_data["device_registry"]}
+            for dev_id in matches:
+                dr = dr_by_id.get(dev_id, {})
+                zha = zha_by_reg_id.get(dev_id)
+                name = (
+                    (zha.get("user_given_name") or zha.get("name"))
+                    if zha
+                    else (dr.get("name_by_user") or dr.get("name") or dev_id)
+                )
+                console.print(f"  {name}  ({dev_id})")
+            return
+        device_id = matches[0]
+    else:
+        device_id = await _pick_device(all_data, backend)
+        if device_id is None:
+            return
+
+    deps = build_deps(device_id, all_data)
     if deps is None:
         console.print("[red]Device not found.[/red]")
         return
 
-    show_report(deps)
+    if json_output:
+        import json  # noqa: PLC0415
+        from dataclasses import asdict  # noqa: PLC0415
+
+        print(json.dumps(asdict(deps), indent=2))
+    else:
+        show_report(deps)
 
 
-def inspect_command(ha_url: str, token: str, verify_ssl: bool, debug: bool = False) -> None:
-    asyncio.run(run_inspect(ha_url, token, verify_ssl, debug))
+def inspect_command(
+    ha_url: str,
+    token: str,
+    verify_ssl: bool,
+    debug: bool = False,
+    device: str | None = None,
+    backend: str = "zha",
+    json_output: bool = False,
+) -> None:
+    asyncio.run(run_inspect(ha_url, token, verify_ssl, debug, device, backend, json_output))

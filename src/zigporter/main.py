@@ -179,20 +179,29 @@ def export(
 
 
 @app.command(name="list-z2m")
-def list_z2m() -> None:
+def list_z2m(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON instead of a table."),
+) -> None:
     """List all devices currently paired with Zigbee2MQTT."""
     ha_url, token, verify_ssl = _get_config()
     z2m_url, mqtt_topic = _get_z2m_config()
     list_z2m_command(
-        ha_url=ha_url, token=token, z2m_url=z2m_url, verify_ssl=verify_ssl, mqtt_topic=mqtt_topic
+        ha_url=ha_url,
+        token=token,
+        z2m_url=z2m_url,
+        verify_ssl=verify_ssl,
+        mqtt_topic=mqtt_topic,
+        json_output=json_output,
     )
 
 
 @app.command(name="list-devices")
-def list_devices() -> None:
+def list_devices(
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON instead of a table."),
+) -> None:
     """List all Home Assistant devices across all integrations."""
     ha_url, token, verify_ssl = _get_config()
-    list_devices_command(ha_url=ha_url, token=token, verify_ssl=verify_ssl)
+    list_devices_command(ha_url=ha_url, token=token, verify_ssl=verify_ssl, json_output=json_output)
 
 
 def _resolve_or_fetch_export(
@@ -326,17 +335,37 @@ def migrate(
 
 @app.command()
 def inspect(
+    device: str | None = typer.Argument(
+        None,
+        help="Device to inspect: entity ID (sensor.x), IEEE address (0x…), or partial name. "
+        "Omit to pick interactively.",
+    ),
     debug: bool = typer.Option(
         False, "--debug", help="Print Lovelace fetch diagnostics before the report."
     ),
+    backend: str = typer.Option(
+        "zha",
+        "--backend",
+        help="Device source to search: zha, z2m (Zigbee2MQTT), or all (every HA device).",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output result as JSON."),
 ) -> None:
-    """Show all automations, scripts, scenes, and dashboard cards that depend on a ZHA device.
+    """Show all automations, scripts, scenes, and dashboard cards that depend on a device.
 
     Connects live to Home Assistant, lets you pick a device, and prints a full
-    dependency report.
+    dependency report.  Pass a device argument to skip the interactive picker.
+    Use --backend z2m or --backend all to inspect non-ZHA devices.
     """
     ha_url, token, verify_ssl = _get_config()
-    inspect_command(ha_url=ha_url, token=token, verify_ssl=verify_ssl, debug=debug)
+    inspect_command(
+        ha_url=ha_url,
+        token=token,
+        verify_ssl=verify_ssl,
+        debug=debug,
+        device=device,
+        backend=backend,
+        json_output=json_output,
+    )
 
 
 @app.command()
@@ -419,32 +448,72 @@ def rename_device(
 
 
 @app.command()
-def stale() -> None:
+def stale(
+    device: str | None = typer.Argument(
+        None,
+        help="Device name (partial) or HA device ID to target directly. "
+        "Omit to pick interactively.",
+    ),
+    action: str | None = typer.Option(
+        None,
+        "--action",
+        help="Headless action to execute: remove, ignore, mark-stale, suppress, or clear. "
+        "Requires a device argument.",
+    ),
+    note: str | None = typer.Option(
+        None,
+        "--note",
+        help="Note text attached when using --action mark-stale.",
+    ),
+) -> None:
     """Identify and manage offline/stale devices across all integrations.
 
     Connects to Home Assistant, lists devices where all entities are
     unavailable, and lets you remove, annotate or ignore them.
     State is persisted to ~/.config/zigporter/stale.json.
+
+    Pass a device argument to skip the picker (semi-headless).
+    Add --action to execute without any prompts (fully headless).
     """
     from zigporter.commands.stale import stale_command  # noqa: PLC0415
 
     ha_url, token, verify_ssl = _get_config()
-    stale_command(ha_url=ha_url, token=token, verify_ssl=verify_ssl)
+    stale_command(
+        ha_url=ha_url,
+        token=token,
+        verify_ssl=verify_ssl,
+        device=device,
+        action=action,
+        note=note,
+    )
 
 
 @app.command(name="fix-device")
-def fix_device() -> None:
+def fix_device(
+    device: str | None = typer.Argument(
+        None,
+        help="Device to fix: partial name or IEEE address. Omit to pick interactively.",
+    ),
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Apply the fix without a confirmation prompt.",
+    ),
+) -> None:
     """Remove stale ZHA device entries left behind after migration to Zigbee2MQTT.
 
     Scans HA for devices that have both a stale ZHA entry and an active Z2M entry,
     lets you pick one, deletes the stale ZHA entities, removes the ZHA device from
     the registry, and renames any Z2M entities that got a numeric suffix (e.g. _2)
     back to their original names so dashboard cards work again.
+
+    Pass a device argument to skip the picker.  Add --apply to also skip the
+    confirmation prompt (fully non-interactive).
     """
     from zigporter.commands.fix_device import fix_device_command as _fix  # noqa: PLC0415
 
     ha_url, token, verify_ssl = _get_config()
-    _fix(ha_url=ha_url, token=token, verify_ssl=verify_ssl)
+    _fix(ha_url=ha_url, token=token, verify_ssl=verify_ssl, device=device, apply=apply)
 
 
 @app.command(name="network-map")

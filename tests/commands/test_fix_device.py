@@ -431,3 +431,132 @@ def test_fix_device_command_runs_asyncio(mocker):
     mock_run.assert_called_once()
     # Close the unawaited coroutine passed to asyncio.run to suppress ResourceWarning
     mock_run.call_args[0][0].close()
+
+
+# ---------------------------------------------------------------------------
+# _match_pairs
+# ---------------------------------------------------------------------------
+
+
+def _make_two_pairs():
+    p1 = StalePair(
+        ieee="0011223344556677",
+        name="Living Room Plug",
+        zha_device_id="zha-1",
+        z2m_device_id="z2m-1",
+    )
+    p2 = StalePair(
+        ieee="aabbccddeeff0011",
+        name="Bedroom Sensor",
+        zha_device_id="zha-2",
+        z2m_device_id="z2m-2",
+    )
+    return p1, p2
+
+
+def test_match_pairs_by_name_partial():
+    from zigporter.commands.fix_device import _match_pairs  # noqa: PLC0415
+
+    p1, p2 = _make_two_pairs()
+    assert _match_pairs("living", [p1, p2]) == [p1]
+
+
+def test_match_pairs_by_name_case_insensitive():
+    from zigporter.commands.fix_device import _match_pairs  # noqa: PLC0415
+
+    p1, p2 = _make_two_pairs()
+    assert _match_pairs("BEDROOM", [p1, p2]) == [p2]
+
+
+def test_match_pairs_by_ieee_0x():
+    from zigporter.commands.fix_device import _match_pairs  # noqa: PLC0415
+
+    p1, p2 = _make_two_pairs()
+    assert _match_pairs("0x0011223344556677", [p1, p2]) == [p1]
+
+
+def test_match_pairs_by_ieee_colon():
+    from zigporter.commands.fix_device import _match_pairs  # noqa: PLC0415
+
+    p1, p2 = _make_two_pairs()
+    assert _match_pairs("00:11:22:33:44:55:66:77", [p1, p2]) == [p1]
+
+
+def test_match_pairs_no_match():
+    from zigporter.commands.fix_device import _match_pairs  # noqa: PLC0415
+
+    p1, p2 = _make_two_pairs()
+    assert _match_pairs("Office Lamp", [p1, p2]) == []
+
+
+def test_match_pairs_ambiguous():
+    from zigporter.commands.fix_device import _match_pairs  # noqa: PLC0415
+
+    p1, p2 = _make_two_pairs()
+    # Both contain "room"
+    assert len(_match_pairs("room", [p1, p2])) == 2
+
+
+# ---------------------------------------------------------------------------
+# run_fix_device — headless device arg
+# ---------------------------------------------------------------------------
+
+
+async def test_run_fix_device_headless_not_found(mocker):
+    """device arg that matches nothing prints an error and calls nothing."""
+    pair = _make_pair(stale_entities=["switch.plug"])
+    ha_mock = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.fix_device.HAClient", return_value=ha_mock)
+    mocker.patch("zigporter.commands.fix_device.find_stale_pairs", return_value=[pair])
+    mock_apply = mocker.patch("zigporter.commands.fix_device.apply_fix", new_callable=AsyncMock)
+
+    await run_fix_device("https://ha.test", "token", False, device="Nonexistent")
+
+    mock_apply.assert_not_called()
+
+
+async def test_run_fix_device_headless_selects_matching_pair(mocker):
+    """device arg selects the right pair; confirmation prompt is still shown."""
+    p1, p2 = _make_two_pairs()
+    ha_mock = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.fix_device.HAClient", return_value=ha_mock)
+    mocker.patch("zigporter.commands.fix_device.find_stale_pairs", return_value=[p1, p2])
+    mocker.patch(
+        "questionary.confirm",
+        return_value=MagicMock(unsafe_ask_async=AsyncMock(return_value=True)),
+    )
+    mock_apply = mocker.patch("zigporter.commands.fix_device.apply_fix", new_callable=AsyncMock)
+    mock_select = mocker.patch("questionary.select")
+
+    await run_fix_device("https://ha.test", "token", False, device="living")
+
+    mock_select.assert_not_called()
+    mock_apply.assert_called_once_with(p1, ha_mock)
+
+
+async def test_run_fix_device_headless_ambiguous_does_not_apply(mocker):
+    """Multiple matches print an error and do not call apply_fix."""
+    p1, p2 = _make_two_pairs()
+    ha_mock = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.fix_device.HAClient", return_value=ha_mock)
+    mocker.patch("zigporter.commands.fix_device.find_stale_pairs", return_value=[p1, p2])
+    mock_apply = mocker.patch("zigporter.commands.fix_device.apply_fix", new_callable=AsyncMock)
+
+    await run_fix_device("https://ha.test", "token", False, device="room")
+
+    mock_apply.assert_not_called()
+
+
+async def test_run_fix_device_apply_flag_skips_confirmation(mocker):
+    """apply=True bypasses the confirmation prompt."""
+    pair = _make_pair(stale_entities=["switch.plug"])
+    ha_mock = mocker.AsyncMock()
+    mocker.patch("zigporter.commands.fix_device.HAClient", return_value=ha_mock)
+    mocker.patch("zigporter.commands.fix_device.find_stale_pairs", return_value=[pair])
+    mock_confirm = mocker.patch("questionary.confirm")
+    mock_apply = mocker.patch("zigporter.commands.fix_device.apply_fix", new_callable=AsyncMock)
+
+    await run_fix_device("https://ha.test", "token", False, apply=True)
+
+    mock_confirm.assert_not_called()
+    mock_apply.assert_called_once_with(pair, ha_mock)

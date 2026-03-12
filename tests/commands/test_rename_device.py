@@ -1004,6 +1004,25 @@ def test_build_rename_plan_from_snapshot_lovelace_match():
     assert lv_locs[0].name == "Home"
 
 
+def test_build_rename_plan_from_snapshot_jinja_scene_detected():
+    """Jinja2 template substring in a scene is added to jinja_template_names."""
+    from zigporter.rename_plan import build_rename_plan_from_snapshot  # noqa: PLC0415
+
+    snap = _make_snapshot(
+        scenes=[
+            {
+                "id": "sc1",
+                "name": "Evening Glow",
+                "template": "{{ states('switch.kitchen_plug') }}",
+            }
+        ]
+    )
+    plan = build_rename_plan_from_snapshot(snap, "switch.kitchen_plug", "switch.bedroom_lamp")
+    jinja_scenes = [(ctx, name) for ctx, name in plan.jinja_template_names if ctx == "scene"]
+    assert len(jinja_scenes) == 1
+    assert jinja_scenes[0][1] == "Evening Glow"
+
+
 def test_build_rename_plan_from_snapshot_config_entry_match():
     """Lines 599-602: config_entry whose options contain the entity ID."""
     from zigporter.rename_plan import build_rename_plan_from_snapshot  # noqa: PLC0415
@@ -2045,6 +2064,124 @@ async def test_execute_device_rename_no_z2m_params_skips(mock_device_exec_client
         mock_device_exec_client, plan, z2m_client=mock_z2m, z2m_friendly_name=None
     )
     mock_z2m.rename_device.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# display_device_plan — Jinja2 template warning section
+# ---------------------------------------------------------------------------
+
+
+def test_display_device_plan_jinja_hits_shown(mocker):
+    """Jinja2 warning is printed when plans have jinja_template_names."""
+    from zigporter.commands.rename_device import DeviceRenamePlan, display_device_plan  # noqa: PLC0415
+
+    printed: list[str] = []
+    mocker.patch(
+        "zigporter.commands.rename_device.console.print",
+        side_effect=lambda *a, **kw: printed.append(str(a[0]) if a else ""),
+    )
+
+    plan = DeviceRenamePlan(
+        device_id="dev1",
+        old_device_name="Kitchen Plug",
+        new_device_name="Bedroom Lamp",
+        plans=[
+            RenamePlan(
+                old_entity_id="switch.kitchen_plug",
+                new_entity_id="switch.bedroom_lamp",
+                locations=[
+                    RenameLocation(
+                        context="registry",
+                        name="HA entity registry",
+                        item_id="switch.kitchen_plug",
+                        occurrences=1,
+                    )
+                ],
+                jinja_template_names=[("automation", "Morning Routine")],
+            )
+        ],
+    )
+    display_device_plan(plan)
+    all_output = "\n".join(printed)
+    assert "Jinja2" in all_output
+    assert "Morning Routine" in all_output
+
+
+def test_display_device_plan_jinja_hits_many_entities_truncated(mocker):
+    """When > 3 entities have Jinja2 hits, a (+N more) suffix is appended."""
+    from zigporter.commands.rename_device import DeviceRenamePlan, display_device_plan  # noqa: PLC0415
+
+    printed: list[str] = []
+    mocker.patch(
+        "zigporter.commands.rename_device.console.print",
+        side_effect=lambda *a, **kw: printed.append(str(a[0]) if a else ""),
+    )
+
+    def _make_plan(old: str, new: str) -> RenamePlan:
+        return RenamePlan(
+            old_entity_id=old,
+            new_entity_id=new,
+            locations=[
+                RenameLocation(
+                    context="registry", name="HA entity registry", item_id=old, occurrences=1
+                )
+            ],
+            jinja_template_names=[("automation", "Big Auto")],
+        )
+
+    plan = DeviceRenamePlan(
+        device_id="dev1",
+        old_device_name="Kitchen Plug",
+        new_device_name="Bedroom Lamp",
+        plans=[
+            _make_plan("switch.kitchen_plug_a", "switch.bedroom_lamp_a"),
+            _make_plan("switch.kitchen_plug_b", "switch.bedroom_lamp_b"),
+            _make_plan("switch.kitchen_plug_c", "switch.bedroom_lamp_c"),
+            _make_plan("switch.kitchen_plug_d", "switch.bedroom_lamp_d"),
+        ],
+    )
+    display_device_plan(plan)
+    all_output = "\n".join(printed)
+    assert "more" in all_output
+
+
+def test_display_device_plan_jinja_deduplicates_hits(mocker):
+    """Each (ctx_label, name) pair appears only once even when referenced by multiple entities."""
+    from zigporter.commands.rename_device import DeviceRenamePlan, display_device_plan  # noqa: PLC0415
+
+    printed: list[str] = []
+    mocker.patch(
+        "zigporter.commands.rename_device.console.print",
+        side_effect=lambda *a, **kw: printed.append(str(a[0]) if a else ""),
+    )
+
+    plan = DeviceRenamePlan(
+        device_id="dev1",
+        old_device_name="Kitchen Plug",
+        new_device_name="Bedroom Lamp",
+        plans=[
+            RenamePlan(
+                old_entity_id="switch.kitchen_plug",
+                new_entity_id="switch.bedroom_lamp",
+                locations=[
+                    RenameLocation(
+                        context="registry",
+                        name="HA entity registry",
+                        item_id="switch.kitchen_plug",
+                        occurrences=1,
+                    )
+                ],
+                jinja_template_names=[
+                    ("automation", "Shared Auto"),
+                    ("automation", "Shared Auto"),  # duplicate
+                ],
+            )
+        ],
+    )
+    display_device_plan(plan)
+    all_output = "\n".join(printed)
+    # "Shared Auto" should appear only once in the Jinja2 warning block
+    assert all_output.count("Shared Auto") == 1
 
 
 async def test_execute_device_rename_reloads_z2m_integration_after_rename(mock_device_exec_client):

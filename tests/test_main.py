@@ -354,4 +354,30 @@ def test_list_devices_command(mocker):
     mock_list = mocker.patch("zigporter.main.list_devices_command")
     result = runner.invoke(app, ["list-devices"])
     assert result.exit_code == 0
-    mock_list.assert_called_once_with(ha_url="https://ha.test", token="tok", verify_ssl=True)
+    mock_list.assert_called_once_with(
+        ha_url="https://ha.test", token="tok", verify_ssl=True, json_output=False
+    )
+
+
+def test_stale_command_cli_with_device_and_action(mocker):
+    """stale CLI passes device, action, and note args through to stale_command."""
+    mocker.patch("zigporter.main._get_config", return_value=("https://ha.test", "tok", True))
+    mock_stale = mocker.patch("zigporter.commands.stale.stale_command")
+    result = runner.invoke(app, ["stale", "Old Bulb", "--action=ignore"])
+    assert result.exit_code == 0
+    mock_stale.assert_called_once()
+    _, kwargs = mock_stale.call_args
+    assert kwargs["device"] == "Old Bulb"
+    assert kwargs["action"] == "ignore"
+
+
+def test_inspect_command_json_flag(mocker):
+    """inspect CLI passes json_output=True when --json flag is set."""
+    mocker.patch("zigporter.main._ensure_config")
+    mocker.patch("zigporter.main.load_config", return_value=("https://ha.test", "tok", True))
+    mock_inspect = mocker.patch("zigporter.main.inspect_command")
+    result = runner.invoke(app, ["inspect", "--json", "switch.kitchen_plug"])
+    assert result.exit_code == 0
+    _, kwargs = mock_inspect.call_args
+    assert kwargs["json_output"] is True
+    assert kwargs["device"] == "switch.kitchen_plug"
