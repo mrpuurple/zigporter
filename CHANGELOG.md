@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.2.0] - 2026-03-12
+
+### Changed
+
+- chore(deps-dev): bump zensical from 0.0.24 to 0.0.26 (#60)
+- chore(deps-dev): bump ruff from 0.15.4 to 0.15.5 (#59)
+- feat: machine-readable output and headless modes for AI-agent workflows (#61)
+
+### Fixed
+
+- fix(export): handle missing ZHA integration gracefully (#58)
+
 ## [1.2.0] - 2026-03-12
 
 ### Added
@@ -396,6 +409,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump actions/github-script from 7 to 8 (#2)
 
 [Unreleased]: https://github.com/nordstad/zigporter/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/nordstad/zigporter/compare/v1.2.0...v1.2.0
 [1.2.0]: https://github.com/nordstad/zigporter/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/nordstad/zigporter/compare/v1.1.0...v1.1.0
 [1.1.0]: https://github.com/nordstad/zigporter/compare/v1.0.3...v1.1.0
