@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-15
+
+### Added
+
+- `migrate --direction z2m-to-zha`: full reverse migration wizard (Z2M → ZHA) — removes device from Z2M via MQTT, pairs with ZHA, restores name/area/entity IDs, resolves stale MQTT entity suffix conflicts, validates, optional cascade rename (#66)
+- `export-z2m` command: snapshot Z2M devices (names, areas, entities, automation refs) to JSON before reverse migration (#66)
 
 ## [1.2.0] - 2026-03-12
 
@@ -408,7 +414,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump codecov/codecov-action from 4 to 5 (#3)
 - Bump actions/github-script from 7 to 8 (#2)
 
-[Unreleased]: https://github.com/nordstad/zigporter/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/nordstad/zigporter/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/nordstad/zigporter/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/nordstad/zigporter/compare/v1.2.0...v1.2.0
 [1.2.0]: https://github.com/nordstad/zigporter/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/nordstad/zigporter/compare/v1.1.0...v1.1.0
