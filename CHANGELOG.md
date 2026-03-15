@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.3.0] - 2026-03-15
+
+### Changed
+
+- feat: Z2M to ZHA reverse migration (#66)
+
 ## [1.3.0] - 2026-03-15
 
 ### Added
@@ -415,6 +422,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump actions/github-script from 7 to 8 (#2)
 
 [Unreleased]: https://github.com/nordstad/zigporter/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/nordstad/zigporter/compare/v1.3.0...v1.3.0
 [1.3.0]: https://github.com/nordstad/zigporter/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/nordstad/zigporter/compare/v1.2.0...v1.2.0
 [1.2.0]: https://github.com/nordstad/zigporter/compare/v1.1.0...v1.2.0
