@@ -8,7 +8,7 @@
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://pepy.tech/projects/zigporter"><img src="https://static.pepy.tech/personalized-badge/zigporter?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" alt="PyPI Downloads"></a>
-  <p>Manage your Home Assistant Zigbee network from the terminal.<br>Migrate ZHA → Z2M, cascade-rename entities and devices, and map your mesh.</p>
+  <p>Manage your Home Assistant Zigbee network from the terminal.<br>Migrate ZHA ↔ Z2M (both directions), cascade-rename entities and devices, and map your mesh.</p>
 </div>
 
 ## Features
@@ -22,7 +22,8 @@
     <tr><th>Command</th><th>Description</th></tr>
   </thead>
   <tbody>
-    <tr><td nowrap><code>migrate</code></td><td>Interactive wizard: remove from ZHA → factory reset → pair with Z2M → restore names, areas, and entity IDs</td></tr>
+    <tr><td nowrap><code>migrate</code></td><td>Interactive wizard (ZHA → Z2M): remove from ZHA → factory reset → pair with Z2M → restore names, areas, and entity IDs</td></tr>
+    <tr><td nowrap><code>migrate&nbsp;--direction&nbsp;z2m-to-zha</code></td><td>Interactive wizard (Z2M → ZHA): remove from Z2M → factory reset → pair with ZHA → restore names, areas, and entity IDs</td></tr>
     <tr><td nowrap><code>rename&#x2011;entity</code></td><td>Rename a HA entity ID and cascade the change across automations, scripts, scenes, and all Lovelace dashboards</td></tr>
     <tr><td nowrap><code>rename&#x2011;device</code></td><td>Rename any HA device by name and cascade the change to all its entities and references</td></tr>
     <tr><td nowrap><code>check</code></td><td>Verify HA and Z2M connectivity before making changes</td></tr>
@@ -102,6 +103,45 @@ Progress is saved after every step. Press `Ctrl-C` to pause; rerun to resume.
 ```bash
 # Check progress without entering the wizard
 zigporter migrate --status
+```
+
+## Migrate Z2M → ZHA
+
+---
+> [!WARNING]
+> **Back up first** — The migration wizard removes devices from Z2M and makes changes to
+> entity IDs, automations, and dashboards that are difficult to reverse. Before running,
+> [back up your Home Assistant configuration](https://www.home-assistant.io/common-tasks/os/#backups).
+> This tool is provided **as-is** with no warranty. Use at your own risk.
+---
+
+```bash
+# Export your Z2M device list (used as the migration input)
+zigporter export-z2m
+
+# Verify connectivity first
+zigporter check
+
+# Run the reverse migration wizard
+zigporter migrate --direction z2m-to-zha <export-file>
+```
+
+The wizard guides you through each device one at a time:
+
+1. Remove from Z2M — sends an MQTT removal command and unpairs the device
+2. Factory reset — prompts to clear the old pairing on the physical device
+3. Pair with ZHA — opens a 300 s permit-join window and polls ZHA by IEEE address
+4. Rename & area — restores the original Z2M name and area in HA
+5. Restore entity IDs — detects `_2`/`_3` suffix conflicts caused by stale MQTT entries and offers to delete them and rename the ZHA entities back to their original IDs
+6. Review — shows all entities registered for the device
+7. Validate — polls HA entity states until all entities come online
+8. Rename (optional) — rename the device to a different name with full HA cascade
+
+Progress is saved after every step. Press `Ctrl-C` to pause; rerun to resume.
+
+```bash
+# Check progress without entering the wizard
+zigporter migrate --direction z2m-to-zha <export-file> --status
 ```
 
 ## Fix a Previously Migrated Device
