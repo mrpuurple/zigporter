@@ -1,27 +1,38 @@
 # Migration wizard
 
-The wizard migrates one device at a time. Run it with:
+The wizard migrates one device at a time and supports both directions:
+
+| Direction | Command |
+|---|---|
+| ZHA → Zigbee2MQTT | `zigporter migrate` |
+| Zigbee2MQTT → ZHA | `zigporter migrate --direction z2m-to-zha` |
+
+> **Back up first** — The wizard removes devices from their source integration and rewrites
+> entity IDs, automations, and dashboards. These changes are difficult to reverse. Before
+> running, [back up your Home Assistant configuration](https://www.home-assistant.io/common-tasks/os/#backups).
+> This tool is provided **as-is** with no warranty. Use at your own risk.
+
+Progress is tracked in a state file so migrations can be paused and resumed safely.
+Check progress at any time without entering the wizard:
+
+```bash
+zigporter migrate --status                          # ZHA → Z2M progress
+zigporter migrate --direction z2m-to-zha --status  # Z2M → ZHA progress
+```
+
+---
+
+## ZHA → Zigbee2MQTT
 
 ```bash
 zigporter migrate [ZHA_EXPORT]
 ```
 
-> **Back up first** — The wizard removes devices from ZHA and rewrites entity IDs,
-> automations, and dashboards. These changes are difficult to reverse. Before running,
-> [back up your Home Assistant configuration](https://www.home-assistant.io/common-tasks/os/#backups).
-> This tool is provided **as-is** with no warranty. Use at your own risk.
-
 `ZHA_EXPORT` defaults to `~/.config/zigporter/zha-export.json` (auto-created by `zigporter export`).
-Check progress without entering the wizard:
+On the first run, `zigporter` requires a one-time backup confirmation stored in
+`~/.config/zigporter/.backup-confirmed`.
 
-```bash
-zigporter migrate --status
-```
-
-On the first non-status run, `zigporter` requires a one-time backup confirmation and stores
-that acknowledgment in `~/.config/zigporter/.backup-confirmed`.
-
-## Steps
+### Steps
 
 Each device passes through seven steps:
 
@@ -41,11 +52,7 @@ If the 300 s pairing window expires without detecting the device, the wizard off
 - **Force continue** — use this when you can see the device in Z2M with a green interview but automatic detection failed; the wizard proceeds using the IEEE address as a fallback name and the rename step corrects it
 - **Mark as failed** — skip the device and revisit it later
 
-## State persistence
-
-Progress is written to `zha-migration-state.json` after every transition. Pressing `Ctrl-C` at any point marks the current device `FAILED` and saves — rerun the wizard to retry.
-
-## Flow
+### Flow
 
 ```mermaid
 flowchart TD
@@ -73,7 +80,7 @@ flowchart TD
     L --> T
 ```
 
-## Post-migration cleanup with `fix-device`
+### Post-migration cleanup with `fix-device`
 
 If a device was migrated before the suffix-conflict fix was added, or if the wizard was
 interrupted before step 5 completed, stale ZHA entries may still be present in the HA
@@ -94,16 +101,18 @@ The command:
 4. On confirmation: deletes the stale ZHA entities, removes the ZHA device from the
    registry, and renames any `_N` suffixed Z2M entities back to their original IDs
 
-## Reverse migration (Z2M → ZHA)
+---
 
-To migrate devices back from Zigbee2MQTT to ZHA, snapshot your Z2M state first, then run the reverse wizard:
+## Zigbee2MQTT → ZHA
 
 ```bash
 zigporter export-z2m                      # writes ~/.config/zigporter/z2m-export.json
 zigporter migrate --direction z2m-to-zha
 ```
 
-The reverse wizard mirrors the forward wizard — same 7 steps plus an optional rename:
+### Steps
+
+Each device passes through seven steps:
 
 1. **Remove from Z2M** — publishes `{"id": name, "force": true}` to `zigbee2mqtt/bridge/request/device/remove` via MQTT; falls back to a manual confirmation prompt if the call fails
 2. **Reset device** — prompts you to factory-reset the physical device to clear its Z2M pairing
@@ -122,6 +131,8 @@ Z2M groups — virtual multi-device groups that let you control several bulbs or
 2. **ZHA groups are a different system.** ZHA has its own Zigbee group concept (managed under *Devices → Manage Zigbee groups* in the HA UI), but there is no mapping between Z2M group IDs and ZHA group IDs and no way to reconstruct them automatically.
 
 After migrating a device that belonged to Z2M groups, manually remove it from those groups in the Z2M dashboard (*Groups* tab) and rebuild any equivalent ZHA groups if needed.
+
+---
 
 ## Device state machine
 
