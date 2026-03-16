@@ -38,14 +38,19 @@
 
 ## Installation
 
+### pip / uv (cross-platform)
+
 ```bash
 uv tool install zigporter
+# or
+pip install zigporter
 ```
 
-Or with pip:
+### Homebrew (macOS — shell completions included automatically)
 
-```bash
-pip install zigporter
+```zsh
+brew tap nordstad/zigporter https://github.com/nordstad/zigporter
+brew install zigporter
 ```
 
 ## Configuration

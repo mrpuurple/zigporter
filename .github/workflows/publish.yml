@@ -128,3 +128,20 @@ jobs:
             git pull --rebase --autostash origin main
             git push origin HEAD:main
           fi
+
+  update-homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          formula-name: zigporter
+          homebrew-tap: nordstad/zigporter
+          tag-name: ${{ github.ref_name }}
+          download-url: https://pypi.io/packages/source/z/zigporter/zigporter-${{ steps.version.outputs.version }}.tar.gz
+        env:
+          COMMITTER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
