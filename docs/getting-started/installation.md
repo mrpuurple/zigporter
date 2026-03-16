@@ -38,6 +38,15 @@ uv tool install zigporter
 pip install zigporter
 ```
 
+## Install via Homebrew (macOS)
+
+Shell completions are installed automatically — no post-install steps required.
+
+```zsh
+brew tap nordstad/zigporter https://github.com/nordstad/zigporter
+brew install zigporter
+```
+
 ## Install from source
 
 ```bash

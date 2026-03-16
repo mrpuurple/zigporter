@@ -40,7 +40,12 @@ skills are available on top of the CLI:
 ## Installation
 
 ```bash
-uv tool install zigporter
+uv tool install zigporter        # cross-platform
+pip install zigporter             # or pip
+
+# macOS — completions included automatically
+brew tap nordstad/zigporter https://github.com/nordstad/zigporter
+brew install zigporter
 ```
 
 ## Quick start
