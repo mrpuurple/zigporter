@@ -39,11 +39,17 @@ skills are available on top of the CLI:
 
 ## Installation
 
-```bash
-uv tool install zigporter        # cross-platform
-pip install zigporter             # or pip
+**uv / pip (cross-platform)**
 
-# macOS — completions included automatically
+```bash
+uv tool install zigporter
+# or
+pip install zigporter
+```
+
+**Homebrew (macOS — completions included automatically)**
+
+```zsh
 brew tap nordstad/zigporter https://github.com/nordstad/zigporter
 brew install zigporter
 ```
