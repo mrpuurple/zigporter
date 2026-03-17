@@ -9,7 +9,7 @@ working directory. CWD ``.env`` takes precedence, making it easy to use
 import os
 from pathlib import Path
 
-from dotenv import dotenv_values, load_dotenv
+from dotenv import dotenv_values
 
 
 def config_dir() -> Path:
